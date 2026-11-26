@@ -4,7 +4,7 @@ Bot Discord modulaire en TypeScript (discord.js v14, SQLite) : jeux, économie e
 
 ## Fonctionnalités
 
-Les commandes sont regroupées par thème : 18 commandes au lieu d'une trentaine.
+Les commandes sont regroupées par thème : 19 commandes au lieu d'une trentaine.
 
 | Commande | Sous-commandes |
 |---|---|
@@ -16,9 +16,10 @@ Les commandes sont regroupées par thème : 18 commandes au lieu d'une trentaine
 | `/top` | `fortune` · `niveaux` · `victoires` · `daily` · `bourse` |
 | **Modération** | `/warn` `/timeout` `/untimeout` `/kick` `/ban` `/unban` `/purge` |
 | `/sanctions` | `voir` · `revoquer` |
+| `/note` | `ajouter` · `voir` · `supprimer` |
 | `/salon` | `verrouiller` · `deverrouiller` · `mode-lent` |
 | `/admin` | `solde …` · `boutique …` · `xp …` · `export` (« Gérer le serveur ») |
-| `/config` | tableau de bord : économie, modération, niveaux, rôles de niveau |
+| `/config` | tableau de bord : économie, modération, automod, niveaux, rôles de niveau |
 | `/info` | version, latence, uptime |
 
 - **La Taupe** : tous les agents connaissent un mot secret sauf la taupe, qui doit se fondre dans la masse. Les gagnants
@@ -35,6 +36,16 @@ Les commandes sont regroupées par thème : 18 commandes au lieu d'une trentaine
 - **Sanctions automatiques** : par exemple `3 = timeout 1h`, `5 = kick`, `7 = ban 7j` ; appliquées par le bot dès qu'un
   membre atteint ce nombre d'avertissements actifs.
 - **Bans temporaires** : `/ban duree:3j` ; le ban est levé automatiquement, même après un redémarrage du bot.
+- **Automod** : en complément de l'AutoMod de Discord (à utiliser pour les mots interdits, les invitations et les
+  mentions de masse, bloqués avant publication), le bot détecte le **flood** (ex. 6 messages en 5 s) et les
+  **messages répétés**. Il supprime la rafale, avertit le membre (ce qui alimente les paliers) et peut l'exclure
+  quelques minutes. En option, chaque infraction à l'AutoMod de Discord vaut aussi un avertissement. Désactivé par
+  défaut, à régler dans `/config` → Automod. Les membres qui peuvent gérer les messages ne sont pas concernés.
+- **Logs de messages** : messages modifiés (avant/après) et supprimés dans un salon dédié, et transcription en
+  fichier pour les suppressions en masse. Le contenu n'est connu que pour les messages envoyés depuis le démarrage
+  du bot (cache mémoire, rien n'est stocké en base).
+- **Notes** : `/note ajouter|voir|supprimer`, notes internes sur un membre, visibles des modérateurs seulement et
+  sans effet sur les avertissements. `/sanctions voir` signale leur présence.
 - `/admin export` fournit le journal des opérations en CSV.
 
 ## Installation
@@ -53,9 +64,14 @@ Production : `npm run build && npm start`.
 
 Permissions du bot à l'invitation : Voir les salons, Envoyer des messages, Intégrer des liens, Joindre des fichiers,
 Lire l'historique, Gérer les messages, Gérer les salons et Gérer les rôles (pour `/lock` et `/slowmode`), Exclure
-temporairement, Expulser et Bannir des membres. Aucun intent privilégié n'est requis (les niveaux utilisent
-GuildMessages et GuildVoiceStates sans lire le contenu des messages).
+temporairement, Expulser et Bannir des membres. Gérer le serveur en plus si les infractions à l'AutoMod de Discord
+doivent compter comme avertissements (Discord n'envoie ces événements qu'avec cette permission).
 Pour modérer un membre ou lui donner un rôle de niveau, le rôle du bot doit être placé au-dessus.
+
+**Intent privilégié obligatoire : Message Content.** À activer dans le Developer Portal (Bot → Privileged Gateway
+Intents → Message Content Intent) **avant** de démarrer le bot, sinon Discord refuse la connexion (« Used disallowed
+intents »). Il sert aux logs de messages (contenu avant modification ou suppression) et à la détection des messages
+répétés. Les niveaux, eux, ne lisent jamais le contenu.
 
 Graphiques de la bourse : ils sont rendus en PNG sur le serveur. Sous Linux, installer une police pour les
 libellés des axes : `sudo apt install fonts-dejavu-core` (sans police, la courbe s'affiche quand même, sans texte).

@@ -130,8 +130,47 @@ function prepareStatements(db: Db) {
        VALUES (@guildId, @channelId, @now, @now)
        ON CONFLICT (guild_id) DO UPDATE SET mod_log_channel_id = excluded.mod_log_channel_id, updated_at = excluded.updated_at`,
     ),
+    getMessageLogChannel: db
+      .prepare<[string], string | null>('SELECT message_log_channel_id FROM guild_settings WHERE guild_id = ?')
+      .pluck(),
+    setMessageLogChannel: db.prepare(
+      `INSERT INTO guild_settings (guild_id, message_log_channel_id, created_at, updated_at)
+       VALUES (@guildId, @channelId, @now, @now)
+       ON CONFLICT (guild_id) DO UPDATE SET
+         message_log_channel_id = excluded.message_log_channel_id, updated_at = excluded.updated_at`,
+    ),
+    insertNote: db.prepare(
+      `INSERT INTO moderation_notes (guild_id, target_id, author_id, content, created_at)
+       VALUES (@guildId, @targetId, @authorId, @content, @now)`,
+    ),
+    noteById: db.prepare<[number, string], ModerationNote>(
+      `SELECT ${NOTE_COLUMNS} FROM moderation_notes WHERE id = ? AND guild_id = ?`,
+    ),
+    notesFor: db.prepare<[string, string, number], ModerationNote>(
+      `SELECT ${NOTE_COLUMNS} FROM moderation_notes WHERE guild_id = ? AND target_id = ?
+       ORDER BY created_at DESC, id DESC LIMIT ?`,
+    ),
+    countNotes: db
+      .prepare<[string, string], number>('SELECT COUNT(*) FROM moderation_notes WHERE guild_id = ? AND target_id = ?')
+      .pluck(),
+    deleteNote: db.prepare('DELETE FROM moderation_notes WHERE id = ? AND guild_id = ?'),
   };
 }
+
+export const MAX_NOTE_LENGTH = 1000;
+
+/** Note interne sur un membre : visible des modérateurs seulement, sans effet sur les sanctions. */
+export interface ModerationNote {
+  readonly id: number;
+  readonly guildId: string;
+  readonly targetId: string;
+  readonly authorId: string;
+  readonly content: string;
+  readonly createdAt: number;
+}
+
+const NOTE_COLUMNS = `id, guild_id AS guildId, target_id AS targetId, author_id AS authorId, content,
+  created_at AS createdAt`;
 
 /**
  * Journal des sanctions. Ne parle pas à Discord : la couche Discord exécute
@@ -286,5 +325,43 @@ export class ModerationService {
 
   setLogChannel(guildId: string, channelId: string | null): void {
     this.stmts.setLogChannel.run({ guildId, channelId, now: this.clock() });
+  }
+
+  /** Salon des messages modifiés et supprimés (distinct du salon des sanctions). */
+  getMessageLogChannel(guildId: string): string | null {
+    return this.stmts.getMessageLogChannel.get(guildId) ?? null;
+  }
+
+  setMessageLogChannel(guildId: string, channelId: string | null): void {
+    this.stmts.setMessageLogChannel.run({ guildId, channelId, now: this.clock() });
+  }
+
+  // ----- Notes de modération -----
+
+  addNote(guildId: string, targetId: string, authorId: string, content: string): ModerationNote {
+    const text = content.trim().slice(0, MAX_NOTE_LENGTH);
+    if (!text) throw new RangeError('Note vide');
+    const { lastInsertRowid } = this.stmts.insertNote.run({ guildId, targetId, authorId, content: text, now: this.clock() });
+    const note = this.stmts.noteById.get(Number(lastInsertRowid), guildId);
+    if (!note) throw new Error('Note introuvable juste après son insertion');
+    return note;
+  }
+
+  getNote(guildId: string, id: number): ModerationNote | null {
+    return this.stmts.noteById.get(id, guildId) ?? null;
+  }
+
+  /** Notes d'un membre, de la plus récente à la plus ancienne. */
+  listNotes(guildId: string, targetId: string, limit = 10): ModerationNote[] {
+    return this.stmts.notesFor.all(guildId, targetId, limit);
+  }
+
+  countNotes(guildId: string, targetId: string): number {
+    return this.stmts.countNotes.get(guildId, targetId) ?? 0;
+  }
+
+  /** Supprime une note de ce serveur ; renvoie false si elle n'existe pas. */
+  deleteNote(guildId: string, id: number): boolean {
+    return this.stmts.deleteNote.run(id, guildId).changes > 0;
   }
 }

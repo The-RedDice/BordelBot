@@ -5,6 +5,7 @@ import type {
   GatewayIntentBits,
   MessageComponentInteraction,
   ModalSubmitInteraction,
+  Partials,
   RESTPostAPIChatInputApplicationCommandsJSONBody,
   SlashCommandSubcommandBuilder,
   SlashCommandSubcommandGroupBuilder,
@@ -50,6 +51,8 @@ export interface BotModule {
   readonly components?: readonly ComponentHandler[];
   /** Intents Gateway supplémentaires nécessaires au module (non privilégiés de préférence). */
   readonly intents?: readonly GatewayIntentBits[];
+  /** Structures partielles à recevoir (ex. suppression d'un message absent du cache). */
+  readonly partials?: readonly Partials[];
   /** Sections du tableau de bord `/config`. */
   readonly settings?: readonly SettingsSection[];
   /** Appelé une fois au démarrage : abonnements EventBus, timers, etc. */

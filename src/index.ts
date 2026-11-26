@@ -38,7 +38,10 @@ async function main(): Promise<void> {
     logger.debug(`Module initialisé : ${mod.name}`);
   }
 
-  const client = createDiscordClient(modules.flatMap((m) => m.intents ?? []));
+  const client = createDiscordClient(
+    modules.flatMap((m) => m.intents ?? []),
+    modules.flatMap((m) => m.partials ?? []),
+  );
   client.once(Events.ClientReady, async (c) => {
     logger.info(`Connecté en tant que ${c.user.tag} (${registry.allCommands().length} commande(s))`);
     for (const mod of modules) {

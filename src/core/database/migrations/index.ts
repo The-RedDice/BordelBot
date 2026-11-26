@@ -4,6 +4,7 @@ import { economyMigration } from './002_economy.js';
 import { featuresMigration } from './003_features.js';
 import { levelsMigration } from './004_levels.js';
 import { schedulerMigration } from './005_scheduler.js';
+import { moderationToolsMigration } from './006_moderation_tools.js';
 
 /** Ajouter chaque nouvelle migration ici, dans l'ordre. */
 export const migrations: readonly Migration[] = [
@@ -12,4 +13,5 @@ export const migrations: readonly Migration[] = [
   featuresMigration,
   levelsMigration,
   schedulerMigration,
+  moderationToolsMigration,
 ];

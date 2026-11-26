@@ -13,6 +13,7 @@ import {
 } from 'discord.js';
 import type { Logger } from '../../../core/logger.js';
 import { replyEphemeral } from '../../../core/replies.js';
+import type { AutomodSettingsStore } from '../automod/settings.js';
 import { MAX_REASON_LENGTH, type ModerationCase, type ModerationService } from '../ModerationService.js';
 import { checkHierarchy, HIERARCHY_MESSAGES } from '../policy.js';
 import { ACTION_LABELS, caseEmbed } from './render.js';
@@ -21,6 +22,7 @@ export type Cmd = ChatInputCommandInteraction<'cached'>;
 
 export interface Deps {
   readonly getService: () => ModerationService;
+  readonly getAutomod: () => AutomodSettingsStore;
   readonly logger: () => Logger;
 }
 

@@ -28,6 +28,7 @@ import {
 } from './helpers.js';
 import { applyThreshold } from './autoSanction.js';
 import { createChannelCommands } from './channels.js';
+import { createNoteCommand } from './notes.js';
 import { auditReason, caseLine, sanctionDm } from './render.js';
 
 // ---------- Commandes ----------
@@ -327,10 +328,14 @@ export function createModerationCommands(deps: Deps): { commands: SlashCommand[]
       const warns = service().countActiveWarns(i.guildId, user.id);
       const expiryDays = service().getWarnExpiryDays(i.guildId);
       const lines = cases.map((c) => caseLine(c, { expired: service().isWarnExpired(c) }));
+      const notes = service().countNotes(i.guildId, user.id);
+      const notesLine = notes > 0 ? `📝 **${notes} note(s) de modération** : \`/note voir\` pour les lire.` : null;
       const embed = new EmbedBuilder()
         .setColor(0x5865f2)
         .setAuthor({ name: `Sanctions de ${user.tag}`, iconURL: user.displayAvatarURL() })
-        .setDescription(lines.length ? lines.join('\n\n').slice(0, 4096) : '*Aucune sanction.*')
+        .setDescription(
+          [notesLine, lines.length ? lines.join('\n\n') : '*Aucune sanction.*'].filter(Boolean).join('\n\n').slice(0, 4096),
+        )
         .setFooter({
           text:
             `${warns} avertissement(s) actif(s)` +
@@ -356,7 +361,7 @@ export function createModerationCommands(deps: Deps): { commands: SlashCommand[]
   };
 
   return {
-    commands: [warn, timeout, untimeout, kick, ban, unban, purge],
+    commands: [warn, timeout, untimeout, kick, ban, unban, purge, createNoteCommand(deps)],
     subcommands: [sanctions, delwarn, ...createChannelCommands(deps)],
   };
 }

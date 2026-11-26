@@ -5,14 +5,19 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js';
  * - Guilds : salons, rôles, interactions.
  * - GuildModeration : événements de ban/unban (synchronisation des logs).
  * GuildMembers (privilégié) n'est pas nécessaire : les options `user` des
- * interactions fournissent déjà le membre résolu. À activer dans le Developer
- * Portal puis ici seulement si un module en a besoin.
- * Les modules ajoutent leurs propres intents via `BotModule.intents`.
+ * interactions fournissent déjà le membre résolu.
+ * Les modules ajoutent leurs propres intents et partials via `BotModule.intents`
+ * et `BotModule.partials`. Un intent privilégié (MessageContent pour la
+ * modération) doit aussi être activé dans le Developer Portal, sinon la
+ * connexion est refusée.
  */
-export function createDiscordClient(extraIntents: readonly GatewayIntentBits[] = []): Client {
+export function createDiscordClient(
+  extraIntents: readonly GatewayIntentBits[] = [],
+  extraPartials: readonly Partials[] = [],
+): Client {
   return new Client({
     intents: [...new Set([GatewayIntentBits.Guilds, GatewayIntentBits.GuildModeration, ...extraIntents])],
-    partials: [Partials.GuildMember, Partials.User],
+    partials: [...new Set([Partials.GuildMember, Partials.User, ...extraPartials])],
     allowedMentions: { parse: ['users'], repliedUser: false },
   });
 }

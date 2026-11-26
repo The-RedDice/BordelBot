@@ -78,7 +78,15 @@ export function caseEmbed(c: ModerationCase): EmbedBuilder {
   }
   if (c.metadata?.['auto'] === true) {
     const trigger = c.metadata['warnCount'];
-    embed.setFooter({ text: `Sanction automatique${trigger ? ` : ${String(trigger)} avertissements actifs` : ''}` });
+    const automod = c.metadata['automod'];
+    embed.setFooter({
+      text:
+        automod === 'discord'
+          ? 'Automatique : AutoMod de Discord'
+          : typeof automod === 'string'
+            ? 'Automatique : automod du bot'
+            : `Sanction automatique${trigger ? ` : ${String(trigger)} avertissements actifs` : ''}`,
+    });
   }
   embed.addFields({ name: 'Raison', value: reasonText(c.reason) });
   return embed;

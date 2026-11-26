@@ -1,5 +1,53 @@
 # Journal des modifications
 
+## Logs de messages, notes de modération et automod
+
+### 🤖 Automod (complète l'AutoMod de Discord)
+
+- **Ce que le bot ne refait pas** : mots interdits, invitations et mentions de masse. L'AutoMod intégré à Discord
+  les bloque *avant* publication, ce que le bot ne peut pas faire. À régler dans Paramètres du serveur → AutoMod.
+- **Flood** : plus de N messages en S secondes (ex. `6/5`), tous salons confondus.
+- **Messages répétés** : N messages identiques en une minute (casse et espaces ignorés).
+- **Sanction** : la rafale est supprimée, le membre reçoit un avertissement (MP, salon de logs, **paliers de
+  sanctions**) et, en option, une exclusion immédiate (5 min par défaut). Si l'avertissement déclenche un palier,
+  pas d'exclusion en plus. Au plus un avertissement automatique par minute et par membre.
+- **Lien avec l'AutoMod de Discord** (option) : chaque infraction vaut un avertissement, avec le nom de la règle.
+  Les actions multiples d'une même infraction (blocage + alerte + exclusion) ne comptent qu'une fois.
+- **Exemptés** : propriétaire et membres qui peuvent gérer les messages du salon.
+- **Désactivé par défaut** : `/config` → 🤖 Automod.
+
+### 📜 Logs de messages
+
+- Messages **modifiés** (avant/après, lien vers le message) et **supprimés** (contenu, pièces jointes), dans un
+  salon distinct des logs de sanctions : `/config` → Modération → « Salon des logs de messages ».
+- **Suppressions en masse** (`/purge`, automod…) : un seul message, avec la transcription en fichier `.txt`.
+- Le contenu n'est connu que pour les messages en cache : envoyés depuis le démarrage du bot, 200 derniers par
+  salon. Rien n'est stocké en base. Bots, webhooks et le salon de logs lui-même sont ignorés.
+- L'auteur de la suppression n'est pas indiqué : Discord ne le fournit pas dans l'événement.
+
+### 📝 Notes de modération
+
+- `/note ajouter|voir|supprimer` (« Exclure temporairement des membres ») : notes internes, jamais envoyées au membre,
+  sans effet sur les avertissements ni les paliers. Suppression par l'auteur ou par « Gérer le serveur ».
+- `/sanctions voir` indique combien de notes existent.
+
+### 🔧 Technique
+
+- **Intent privilégié Message Content** (logs, messages répétés) et AutoModerationExecution.
+- **`BotModule.partials`** : la modération demande `Partials.Message` (suppressions de messages hors cache).
+- Avertissement et exclusion automatiques partagés (`discord/autoWarn.ts`), détection sans discord.js
+  (`automod/detector.ts`).
+- **Migration 006** : `guild_settings.message_log_channel_id`, tables `moderation_notes` et `automod_settings`.
+- **Tests** : 210 au total, dont 17 nouveaux.
+
+### 🚀 Déploiement
+
+1. **Avant tout** : Developer Portal → Bot → Privileged Gateway Intents → activer **Message Content Intent**.
+   Sans ça, le bot ne démarre plus (« Used disallowed intents »).
+2. `git pull && npm ci && npm run build && npm run deploy:commands && pm2 restart bordelbot` (`deploy:commands`
+   pour `/note`).
+3. Pour lier l'AutoMod de Discord : donner « Gérer le serveur » au bot.
+
 ## Planificateur de tâches
 
 Base technique pour les rappels, sondages, anniversaires, la loterie, les rôles temporaires et les saisons. Rien de
