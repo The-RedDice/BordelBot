@@ -3,7 +3,7 @@
  * le module de jeux émet `game:finished` sans connaître l'économie, et l'économie
  * s'y abonne sans connaître les jeux.
  */
-export type GameKind = 'mole' | 'one-vs-all';
+export type GameKind = 'mole' | 'one-vs-all' | 'wordle';
 
 export interface BotEvents {
   'game:finished': {

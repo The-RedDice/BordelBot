@@ -121,7 +121,8 @@ export type EconomyErrorCode =
   | 'BET_TOO_HIGH'
   | 'UNKNOWN_ASSET'
   | 'INSUFFICIENT_SHARES'
-  | 'TRADE_TOO_SMALL';
+  | 'TRADE_TOO_SMALL'
+  | 'WAGER_CLOSED';
 
 export interface EconomyError {
   readonly code: EconomyErrorCode;

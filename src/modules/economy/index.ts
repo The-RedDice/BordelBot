@@ -4,13 +4,17 @@ import type { Logger } from '../../core/logger.js';
 import { createEconomyAdminCommands } from './discord/adminCommand.js';
 import { createEconomyCommands } from './discord/commands.js';
 import { achievementLines } from './discord/format.js';
-import { createGamblingCommands, DuelManager } from './discord/gambling.js';
+import { BlackjackTables } from './discord/blackjack.js';
+import { BoardMatches } from './discord/boards.js';
+import { createGamblingCommands, DuelManager, type Tables } from './discord/gambling.js';
+import { RouletteTables } from './discord/roulette.js';
 import { createMarketCommand } from './discord/market.js';
 import { createProfileCommands } from './discord/profile.js';
 import { createEconomySettings } from './discord/settings.js';
 import { createEconomyTopCommands } from './discord/top.js';
 import { EconomyService } from './EconomyService.js';
 import { GamblingService } from './gambling/GamblingService.js';
+import { WagerService } from './gambling/WagerService.js';
 import { MARKET_TICK_MS, MarketService } from './market/MarketService.js';
 import { ProgressService, type UnlockedAchievement } from './progress/ProgressService.js';
 import type { EconomyServices } from './services.js';
@@ -23,6 +27,7 @@ import type { EconomyServices } from './services.js';
  */
 let services: EconomyServices | undefined;
 let duels: DuelManager | undefined;
+let tables: Tables | undefined;
 let logger: Logger | undefined;
 let client: Client<true> | undefined;
 let unsubscribe: (() => void) | undefined;
@@ -41,6 +46,11 @@ export function getEconomyService(): EconomyService {
 
 export function getEconomyServices(): EconomyServices {
   return getServices();
+}
+
+function getTables(): Tables {
+  if (!tables) throw new Error('Module économie non initialisé');
+  return tables;
 }
 
 function getDuels(): DuelManager {
@@ -84,7 +94,7 @@ async function announceUnlocks(channelId: string, guildId: string, unlocked: Map
   }
 }
 
-const gambling = createGamblingCommands(getServices, getDuels);
+const gambling = createGamblingCommands(getServices, getDuels, getTables);
 
 export const economyModule: BotModule = {
   name: 'economy',
@@ -104,8 +114,17 @@ export const economyModule: BotModule = {
     const eco = new EconomyService(ctx);
     const progress = new ProgressService(ctx.db, eco);
     const market = new MarketService(ctx.db, eco, progress, { logger: log.child('market') });
-    services = { eco, progress, gambling: new GamblingService(eco, progress), market };
+    const wagers = new WagerService(ctx.db, eco, progress);
+    // Parties interrompues par un arrêt du bot : leurs mises sont rendues.
+    const refunded = wagers.refundOpen();
+    if (refunded > 0) log.warn(`${refunded} partie(s) interrompue(s) : mises remboursées`);
+    services = { eco, progress, gambling: new GamblingService(eco, progress), market, wagers };
     duels = new DuelManager(getServices, getLogger);
+    tables = {
+      blackjack: new BlackjackTables(getServices, getLogger),
+      roulette: new RouletteTables(getServices, getLogger),
+      boards: new BoardMatches(getServices, getLogger),
+    };
 
     market.advance();
     scheduleMarket(market, log);
@@ -155,6 +174,11 @@ export const economyModule: BotModule = {
     marketTimer = undefined;
     duels?.dispose();
     duels = undefined;
+    // Parties en cours abandonnées : leurs mises restent en dépôt et seront remboursées au prochain démarrage.
+    tables?.blackjack.dispose();
+    tables?.roulette.dispose();
+    tables?.boards.dispose();
+    tables = undefined;
     services = undefined;
     logger = undefined;
     client = undefined;

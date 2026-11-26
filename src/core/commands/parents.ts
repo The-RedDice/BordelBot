@@ -16,7 +16,7 @@ export interface ParentCommandDef {
  * on ne regroupe que des commandes destinées au même public.
  */
 export const PARENT_COMMANDS = {
-  jeu: { description: 'Mini-jeux : La Taupe, pile ou face, machine à sous, duels' },
+  jeu: { description: 'Mini-jeux : Taupe, mot du jour, morpion, puissance 4, blackjack, roulette, duels…' },
   eco: { description: 'Ton argent : solde, récompense quotidienne, virements, historique' },
   boutique: { description: 'Boutique du serveur et inventaires' },
   profil: { description: 'Profil, succès et niveau d’un membre' },

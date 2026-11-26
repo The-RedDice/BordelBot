@@ -1,5 +1,55 @@
 # Journal des modifications
 
+## Mot du jour, morpion, puissance 4, blackjack et roulette
+
+Cinq nouvelles sous-commandes de `/jeu`.
+
+### 📝 `/jeu mot-du-jour [mot]`
+
+- Un mot de 5 lettres par jour, **le même pour tout le serveur** (différent d'un serveur à l'autre), 6 essais,
+  couleurs à la Wordle (🟩 🟨 ⬛). Accents ignorés, changement de mot à minuit (heure de Paris).
+- Les essais sont **privés** ; à la fin, le résultat est publié **sans les lettres** (comme le partage de Wordle).
+- Une victoire verse la **récompense habituelle des parties** et compte dans les statistiques et succès (via
+  `game:finished`). **Séries** de jours réussis (actuelle et record).
+- ~350 mots à deviner (`games/wordle/words.ts`) ; les propositions ne sont pas limitées à cette liste.
+
+### 🎮 `/jeu morpion` et `/jeu puissance4 adversaire [mise]`
+
+- Défi à accepter (60 s), ordre de jeu tiré au sort, plateau à boutons, bouton « Abandonner ».
+- 2 minutes par coup ; au-delà, le joueur perd.
+- **Mise facultative** : chacun mise la même somme, le gagnant remporte tout, un match nul rembourse.
+
+### 🃏 `/jeu blackjack mise`
+
+- Contre la banque, sabot de 6 jeux mélangé à chaque partie. Tirer, rester, **doubler** (sur les deux premières
+  cartes). Le croupier tire jusqu'à 17 et reste sur un 17 souple. Blackjack payé **3 pour 2**, égalité remboursée.
+- Sans action pendant 2 minutes, le joueur reste automatiquement.
+
+### 🎡 `/jeu roulette pari mise [numero]`
+
+- Roulette européenne (un zéro), **une table par salon** : le premier pari l'ouvre, les autres ont **30 s** pour
+  miser, puis la bille est lancée pour tous. Rouge/noir, pair/impair, manque/passe (×2), douzaines (×3), numéro
+  plein (×36). Jusqu'à 5 paris par joueur et par tour.
+
+### 🔒 Mises en dépôt
+
+- Les mises de ces parties sont **prélevées dès le début et gardées en base** (tables `wagers` et `wager_entries`)
+  jusqu'au règlement. Si le bot redémarre en pleine partie, **elles sont remboursées au démarrage** (« remboursement
+  … (partie interrompue) » dans l'historique).
+- Mise maximale du serveur respectée ; « 0 » dans `/config` désactive blackjack, roulette et les mises des duels
+  (morpion et puissance 4 restent jouables sans mise).
+
+### 🔧 Technique
+
+- Règles pures et testées : `economy/gambling/{blackjack,roulette,boards}.ts`, `games/wordle/wordle.ts`.
+- `WagerService` (dépôt des mises), `assertStake` partagé avec les jeux d'argent existants.
+- **Migration 008** : `wagers`, `wager_entries`, `word_games`.
+- **Tests** : 255 au total, dont 29 nouveaux (rendement de la roulette 36/37, règles du blackjack, alignements,
+  remboursement des parties interrompues, couleurs des lettres doubles, séries).
+
+**Déploiement** : `git pull && npm ci && npm run build && npm run deploy:commands && pm2 restart bordelbot`
+(`deploy:commands` pour les nouvelles sous-commandes de `/jeu`).
+
 ## Anniversaires
 
 - **`/anniversaire definir|supprimer|voir|prochains`** : chaque membre enregistre sa date, sans l'année. Les réponses

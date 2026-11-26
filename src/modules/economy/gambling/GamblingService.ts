@@ -32,6 +32,24 @@ export interface DuelOutcome {
 }
 
 /**
+ * Vérifie qu'une mise est permise (jeux activés, plafond du serveur) et couverte
+ * par le solde. À appeler dans une transaction (`fail` l'annule).
+ */
+export function assertStake(ledger: Ledger, guildId: string, userId: string, stake: number, who?: string): void {
+  const { maxBet, currencyName } = ledger.settings(guildId);
+  if (maxBet <= 0) fail('GAMBLING_DISABLED', 'Les jeux d’argent sont désactivés sur ce serveur.');
+  if (!Number.isSafeInteger(stake) || stake < 1 || stake > MAX_AMOUNT) {
+    fail('INVALID_AMOUNT', 'La mise doit être un entier positif.');
+  }
+  if (stake > maxBet) fail('BET_TOO_HIGH', `La mise maximale est de ${formatAmount(maxBet, currencyName)}.`);
+  const balance = ledger.balance(guildId, userId);
+  if (balance < stake) {
+    const subject = who ? `${who} n’a` : 'Tu n’as';
+    fail('INSUFFICIENT_FUNDS', `${subject} que ${formatAmount(balance, currencyName)} : mise impossible.`);
+  }
+}
+
+/**
  * Jeux d'argent. Chaque partie est une transaction unique : la mise est vérifiée
  * puis le résultat net est appliqué au solde, avec une ligne dans le journal.
  */
@@ -123,17 +141,7 @@ export class GamblingService {
   }
 
   private assertStake(ledger: Ledger, guildId: string, userId: string, stake: number, who?: string): void {
-    const { maxBet, currencyName } = ledger.settings(guildId);
-    if (maxBet <= 0) fail('GAMBLING_DISABLED', 'Les jeux d’argent sont désactivés sur ce serveur.');
-    if (!Number.isSafeInteger(stake) || stake < 1 || stake > MAX_AMOUNT) {
-      fail('INVALID_AMOUNT', 'La mise doit être un entier positif.');
-    }
-    if (stake > maxBet) fail('BET_TOO_HIGH', `La mise maximale est de ${formatAmount(maxBet, currencyName)}.`);
-    const balance = ledger.balance(guildId, userId);
-    if (balance < stake) {
-      const subject = who ? `${who} n’a` : 'Tu n’as';
-      fail('INSUFFICIENT_FUNDS', `${subject} que ${formatAmount(balance, currencyName)} : mise impossible.`);
-    }
+    assertStake(ledger, guildId, userId, stake, who);
   }
 
   private settle(ledger: Ledger, guildId: string, userId: string, stake: number, payout: number, note: string): number {

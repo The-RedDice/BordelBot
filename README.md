@@ -8,7 +8,7 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
 
 | Commande | Sous-commandes |
 |---|---|
-| `/jeu` | `taupe` · `pile-ou-face` · `machine-a-sous` · `duel` |
+| `/jeu` | `taupe` · `mot-du-jour` · `morpion` · `puissance4` · `blackjack` · `roulette` · `pile-ou-face` · `machine-a-sous` · `duel` |
 | `/eco` | `solde` · `daily` · `virer` · `historique` |
 | `/boutique` | `voir` · `acheter` · `inventaire` |
 | `/bourse` | `cours` · `graphique` · `acheter` · `vendre` · `portefeuille` |
@@ -32,8 +32,16 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
   réglable, Europe/Paris par défaut), le bot le souhaite dans un salon, lui donne un rôle pour la journée et lui
   offre un bonus, une fois par an au plus. Un 29 février est fêté le 28 les autres années. `/config` → Anniversaires.
 - **Succès** : 11 succès (victoires, séries de daily, jackpot, duels, bourse…) versent une récompense au déblocage.
-- **Jeux d'argent** : pile ou face (quitte ou double), machine à sous (≈ 95 % redistribués), duels entre membres.
-  Mise maximale réglable dans `/config` (0 = désactivés).
+- **Mot du jour** : un mot de 5 lettres par jour, le même pour tout le serveur, 6 essais. Les essais restent privés, le
+  résultat est publié sans les lettres. Une victoire rapporte la récompense habituelle des parties ; séries de jours
+  réussis comme pour le daily.
+- **Morpion et puissance 4** : défi entre deux membres, plateau à boutons, mise facultative (le gagnant remporte
+  celle de l'autre, un match nul rembourse). 2 minutes par coup, sinon défaite.
+- **Jeux d'argent** : pile ou face (quitte ou double), machine à sous (≈ 95 % redistribués), duels entre membres,
+  **blackjack** contre la banque (sabot de 6 jeux, blackjack payé 3 pour 2, doubler possible) et **roulette**
+  européenne à plusieurs (30 s de mises après le premier pari, chances simples, douzaines, numéro plein).
+  Mise maximale réglable dans `/config` (0 = désactivés). Les mises des parties en cours sont gardées en base : si le
+  bot redémarre en pleine partie, elles sont remboursées.
 - **Bourse** : 5 actifs fictifs dont le cours évolue toutes les 5 minutes (marche aléatoire avec rappel vers un prix
   de référence et actualités qui font bondir ou chuter un cours). Cours communs à tous les serveurs, portefeuilles
   propres à chaque serveur, 1 % de frais par ordre. `/bourse graphique` trace la courbe en image (1 h à 30 jours).

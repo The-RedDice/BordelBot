@@ -13,7 +13,12 @@ import type { ComponentHandler, Subcommand } from '../../../core/commands/types.
 import type { Logger } from '../../../core/logger.js';
 import { replyEphemeral } from '../../../core/replies.js';
 import { formatAmount, MAX_AMOUNT } from '../EconomyService.js';
+import type { BoardGame } from '../gambling/boards.js';
 import { COIN_MULTIPLIER, type CoinSide } from '../gambling/games.js';
+import { BET_CHOICES } from '../gambling/roulette.js';
+import { BJ_PREFIX, type BlackjackTables } from './blackjack.js';
+import { BOARD_PREFIX, type BoardMatches } from './boards.js';
+import { ROULETTE_WINDOW_MS, type RouletteTables } from './roulette.js';
 import type { GetServices } from '../services.js';
 import { achievementLines, errorText } from './format.js';
 import { guildOnly, subcommand } from './helpers.js';
@@ -153,9 +158,17 @@ export class DuelManager {
   }
 }
 
+/** Parties en plusieurs coups, en mémoire (mises en dépôt). */
+export interface Tables {
+  readonly blackjack: BlackjackTables;
+  readonly roulette: RouletteTables;
+  readonly boards: BoardMatches;
+}
+
 export function createGamblingCommands(
   getServices: GetServices,
   getDuels: () => DuelManager,
+  getTables: () => Tables,
 ): { subcommands: Subcommand[]; components: ComponentHandler[] } {
   const pileOuFace: Subcommand = {
     parent: 'jeu',
@@ -222,5 +235,53 @@ export function createGamblingCommands(
     handle: (interaction) => getDuels().handle(interaction),
   };
 
-  return { subcommands: [pileOuFace, slots, duel], components: [duelButtons] };
+  const blackjack: Subcommand = {
+    parent: 'jeu',
+    data: subcommand('blackjack', 'Blackjack contre la banque (blackjack payé 3 pour 2)').addIntegerOption(stakeOption),
+    execute: guildOnly((i) => getTables().blackjack.start(i), getServices),
+  };
+
+  const roulette: Subcommand = {
+    parent: 'jeu',
+    data: subcommand('roulette', `Roulette à plusieurs : mises ouvertes ${ROULETTE_WINDOW_MS / 1000} s après le premier pari`)
+      .addStringOption((o) =>
+        o
+          .setName('pari')
+          .setDescription('Sur quoi tu mises')
+          .setRequired(true)
+          .addChoices(...BET_CHOICES),
+      )
+      .addIntegerOption(stakeOption)
+      .addIntegerOption((o) => o.setName('numero').setDescription('Pour un numéro plein : 0 à 36').setMinValue(0).setMaxValue(36)),
+    execute: guildOnly((i) => getTables().roulette.bet(i), getServices),
+  };
+
+  const board = (game: BoardGame, name: string, description: string): Subcommand => ({
+    parent: 'jeu',
+    data: subcommand(name, description)
+      .addUserOption((o) => o.setName('adversaire').setDescription('Membre à défier').setRequired(true))
+      .addIntegerOption((o) =>
+        o.setName('mise').setDescription('Mise facultative : le gagnant remporte celle de l’autre').setMinValue(1).setMaxValue(MAX_AMOUNT),
+      ),
+    execute: guildOnly((i) => getTables().boards.challenge(i, game), getServices),
+  });
+
+  const components: ComponentHandler[] = [
+    duelButtons,
+    { prefix: BJ_PREFIX, handle: (interaction) => getTables().blackjack.handle(interaction) },
+    { prefix: BOARD_PREFIX, handle: (interaction) => getTables().boards.handle(interaction) },
+  ];
+
+  return {
+    subcommands: [
+      pileOuFace,
+      slots,
+      duel,
+      blackjack,
+      roulette,
+      board('morpion', 'morpion', 'Défie un membre au morpion (mise facultative)'),
+      board('puissance4', 'puissance4', 'Défie un membre au puissance 4 (mise facultative)'),
+    ],
+    components,
+  };
 }

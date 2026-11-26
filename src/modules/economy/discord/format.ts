@@ -19,7 +19,7 @@ const KIND_LABELS: Record<TransactionKind, string> = {
   birthday: '🎂 Anniversaire',
 };
 
-const GAME_LABELS: Record<string, string> = { mole: 'La Taupe', 'one-vs-all': '1 contre tous' };
+const GAME_LABELS: Record<string, string> = { mole: 'La Taupe', 'one-vs-all': '1 contre tous', wordle: 'Mot du jour' };
 
 export function signedAmount(amount: number, currency: string): string {
   return `${amount > 0 ? '+' : amount < 0 ? '−' : ''}${formatAmount(Math.abs(amount), currency)}`;
