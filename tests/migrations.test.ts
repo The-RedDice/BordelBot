@@ -7,10 +7,10 @@ describe('migrations', () => {
   it('applique le schéma puis est idempotent', () => {
     const db = openDatabase(':memory:');
     const first = runMigrations(db, migrations);
-    expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     const second = runMigrations(db, migrations);
     expect(second.applied).toEqual([]);
-    expect(second.currentVersion).toBe(9);
+    expect(second.currentVersion).toBe(10);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
@@ -23,6 +23,7 @@ describe('migrations', () => {
       'birthday_settings',
       'birthdays',
       'economy_accounts',
+      'economy_events',
       'economy_extras',
       'economy_transactions',
       'game_participants',
@@ -33,6 +34,8 @@ describe('migrations', () => {
       'level_members',
       'level_roles',
       'level_settings',
+      'lottery_draws',
+      'lottery_tickets',
       'market_holdings',
       'market_news',
       'market_prices',
@@ -42,6 +45,8 @@ describe('migrations', () => {
       'role_grants',
       'scheduled_jobs',
       'schema_migrations',
+      'season_results',
+      'season_stats',
       'shop_items',
       'user_stats',
       'wager_entries',

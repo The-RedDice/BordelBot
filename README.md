@@ -9,18 +9,18 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
 | Commande | Sous-commandes |
 |---|---|
 | `/jeu` | `taupe` · `mot-du-jour` · `morpion` · `puissance4` · `blackjack` · `roulette` · `pile-ou-face` · `machine-a-sous` · `duel` |
-| `/eco` | `solde` · `daily` · `virer` · `historique` · `braquer` |
+| `/eco` | `solde` · `daily` · `virer` · `historique` · `braquer` · `loterie acheter|voir` |
 | `/boutique` | `voir` · `acheter` · `inventaire` |
 | `/bourse` | `cours` · `graphique` · `acheter` · `vendre` · `portefeuille` |
 | `/profil` | `general` · `succes` · `niveau` |
-| `/top` | `fortune` · `niveaux` · `victoires` · `daily` · `bourse` |
+| `/top` | `fortune` · `niveaux` · `victoires` · `daily` · `bourse` · `saison` |
 | **Modération** | `/warn` `/timeout` `/untimeout` `/kick` `/ban` `/unban` `/purge` |
 | `/sanctions` | `voir` · `revoquer` |
 | `/note` | `ajouter` · `voir` · `supprimer` |
 | `/anniversaire` | `definir` · `supprimer` · `voir` · `prochains` |
 | `/salon` | `verrouiller` · `deverrouiller` · `mode-lent` |
 | `/admin` | `solde …` · `boutique ajouter|role|retirer` · `xp …` · `export` (« Gérer le serveur ») |
-| `/config` | tableau de bord : économie, rôles et braquage, modération, automod, niveaux, rôles de niveau, anniversaires |
+| `/config` | tableau de bord : économie, rôles et braquage, loterie et saisons, modération, automod, niveaux, rôles de niveau, anniversaires |
 | `/info` | version, latence, uptime |
 
 - **La Taupe** : tous les agents connaissent un mot secret sauf la taupe, qui doit se fondre dans la masse. Les gagnants
@@ -49,6 +49,11 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
 - **Braquages** : `/eco braquer`, 30 à 60 % de réussite (plus facile sur une cible plus riche que soi), butin de 5 à
   15 % de son solde (plafond réglable) ; raté, 10 % de son propre solde va à la cible. Un braquage toutes les 4 h,
   une même cible au plus une fois toutes les 12 h. Désactivable dans `/config`.
+- **Loterie** : `/eco loterie acheter`, ticket à prix fixe (100 par défaut), tirage le dimanche à 20 h (heure de Paris).
+  La cagnotte reçoit 90 % du prix des tickets et revient à un seul gagnant, tiré au sort parmi les tickets.
+- **Saisons** : `/top saison` classe les gains du mois (hors virements, ajustements et achats) et les victoires du
+  mois. Le 1er, le podium des gains est archivé et annoncé, le top 3 reçoit un bonus (1 000 / 500 / 250 par défaut)
+  et le 1er le rôle « Champion du mois ». Les soldes, eux, ne sont jamais remis à zéro.
 - **Bourse** : 5 actifs fictifs dont le cours évolue toutes les 5 minutes (marche aléatoire avec rappel vers un prix
   de référence et actualités qui font bondir ou chuter un cours). Cours communs à tous les serveurs, portefeuilles
   propres à chaque serveur, 1 % de frais par ordre. `/bourse graphique` trace la courbe en image (1 h à 30 jours).

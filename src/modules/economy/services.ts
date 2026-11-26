@@ -8,6 +8,9 @@ import type { HeistService } from './heist/HeistService.js';
 import type { MarketService } from './market/MarketService.js';
 import type { ProgressService } from './progress/ProgressService.js';
 import type { RoleShop } from './shop/RoleShop.js';
+import type { EventSettingsStore } from './eventsSettings.js';
+import type { LotteryService } from './lottery/LotteryService.js';
+import type { SeasonService } from './seasons/SeasonService.js';
 
 /** Services du module, créés à l'init et résolus à l'appel par les commandes. */
 export interface EconomyServices {
@@ -22,7 +25,11 @@ export interface EconomyServices {
   readonly heists: HeistService;
   /** Réglages du rôle du plus riche et des braquages. */
   readonly extras: EconomyExtrasStore;
-  /** Planificateur partagé (fin des rôles achetés). */
+  readonly lottery: LotteryService;
+  readonly seasons: SeasonService;
+  /** Réglages de la loterie et des saisons. */
+  readonly events: EventSettingsStore;
+  /** Planificateur partagé (fin des rôles achetés, tirages). */
   readonly scheduler: JobScheduler<BotJobs>;
 }
 

@@ -1,5 +1,45 @@
 # Journal des modifications
 
+## Économie, lot 2 : loterie hebdomadaire et saisons mensuelles
+
+### 🎟️ `/eco loterie acheter [tickets]` · `/eco loterie voir`
+
+- Ticket à **prix fixe** (100 par défaut, 0 = loterie désactivée). Le premier ticket ouvre le tirage, prévu le
+  **dimanche suivant à 20 h** (heure de Paris).
+- La **cagnotte reçoit 90 %** du prix des tickets ; les 10 % restants sortent de l'économie (contre l'inflation).
+- **Un seul gagnant**, tiré au sort parmi les tickets (plus de tickets = plus de chances). 100 tickets au plus par
+  joueur et par tirage. `voir` affiche la cagnotte, les tickets vendus, le nombre de joueurs et tes chances.
+- Tirage par le planificateur (rattrapé si le bot était arrêté), désignation du gagnant et versement dans **une
+  seule transaction** (pas de double gain), annonce dans le salon choisi.
+- Pas de report de cagnotte : un tirage n'existe que si quelqu'un a acheté un ticket, il a donc toujours un gagnant.
+
+### 🏁 Saisons : `/top saison [gains|victoires]`
+
+- **Gains du mois** (classement officiel) : calculés à partir du journal, **hors virements, ajustements d'admin et
+  achats** (recevoir de l'argent d'un ami ne fait pas monter, dépenser en boutique ne fait pas descendre).
+- **Victoires du mois** : compteur à part, remis à zéro chaque mois.
+- **Le 1er du mois** (heure de Paris) : podium archivé, **bonus au top 3** (1 000 / 500 / 250 par défaut, réglables),
+  **rôle « Champion du mois »** retiré à l'ancien et donné au nouveau, annonce. `/top saison` rappelle le podium
+  de la saison précédente.
+- **Les soldes ne sont jamais remis à zéro.** Clôture rejouable sans double bonus.
+- Pas de « XP du mois » : les niveaux ne gardent pas l'historique de l'XP gagnée, à ajouter plus tard si besoin.
+
+### ⚙️ `/config` → 🎟️ Loterie et saisons
+
+Prix du ticket, bonus du podium (`1000/500/250`), rôle « Champion du mois », salon des annonces.
+
+### 🔧 Technique
+
+- `core/time.ts` : calculs de dates dans un fuseau (prochain dimanche 20 h, bornes d'un mois), changements d'heure
+  compris.
+- `LotteryService`, `SeasonService`, `EventSettingsStore` ; tâches `lottery:draw` (une par serveur) et
+  `seasons:close` (mensuelle, clé fixe).
+- **Migration 010** : `economy_events`, `lottery_draws`, `lottery_tickets`, `season_stats`, `season_results`.
+- **Tests** : 283 au total, dont 12 nouveaux.
+
+**Déploiement** : `git pull && npm ci && npm run build && npm run deploy:commands && pm2 restart bordelbot`
+(`deploy:commands` pour `/eco loterie` et `/top saison`). Pour le rôle de champion, le rôle du bot doit être au-dessus.
+
 ## Économie, lot 1 : rôles en boutique, rôle du plus riche, braquages
 
 ### 🎭 Rôles en boutique

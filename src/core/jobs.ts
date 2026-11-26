@@ -13,4 +13,8 @@ export interface BotJobs {
   'shop:roleExpiry': { readonly guildId: string; readonly userId: string; readonly roleId: string };
   /** Toutes les heures : le rôle du plus riche passe au n° 1 du classement. */
   'economy:richest': Record<string, never>;
+  /** Tirage de la loterie d'un serveur (dimanche 20 h). */
+  'lottery:draw': { readonly guildId: string; readonly drawId: number };
+  /** Le 1er du mois : clôture de la saison précédente (podium, bonus, rôle de champion). */
+  'seasons:close': Record<string, never>;
 }

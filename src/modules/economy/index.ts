@@ -23,6 +23,12 @@ import { roleExpiryHandler, updateRichest } from './discord/roles.js';
 import { EconomyExtrasStore } from './extras.js';
 import { HeistService } from './heist/HeistService.js';
 import { RoleShop } from './shop/RoleShop.js';
+import { createEventsSettings } from './discord/eventsSettingsSection.js';
+import { createLotteryCommand, lotteryDrawHandler } from './discord/lottery.js';
+import { closeSeasons, createSeasonTopCommand, nextSeasonClose } from './discord/seasons.js';
+import { EventSettingsStore } from './eventsSettings.js';
+import { LotteryService } from './lottery/LotteryService.js';
+import { SeasonService } from './seasons/SeasonService.js';
 
 /**
  * Module Économie : soldes, daily, virements, boutique, jeux d'argent, bourse,
@@ -40,6 +46,7 @@ let marketTimer: NodeJS.Timeout | undefined;
 let unregisterJobs: (() => void)[] = [];
 
 export const RICHEST_TICK_KEY = 'economy:richest';
+export const SEASONS_CLOSE_KEY = 'seasons:close';
 
 /** Début de l'heure suivante, plus quelques secondes. */
 const nextHour = (at: number) => (Math.floor(at / 3_600_000) + 1) * 3_600_000 + 5_000;
@@ -115,10 +122,12 @@ export const economyModule: BotModule = {
     ...createProfileCommands(getServices),
     ...gambling.subcommands,
     ...createEconomyTopCommands(getServices),
+    createSeasonTopCommand(getServices),
+    createLotteryCommand(getServices),
     ...createEconomyAdminCommands(getEconomyService),
   ],
   components: gambling.components,
-  settings: [createEconomySettings(getEconomyService), createExtrasSettings(getServices)],
+  settings: [createEconomySettings(getEconomyService), createExtrasSettings(getServices), createEventsSettings(getServices)],
   init(ctx) {
     const log = ctx.logger.child('economy');
     logger = log;
@@ -130,6 +139,7 @@ export const economyModule: BotModule = {
     const refunded = wagers.refundOpen();
     if (refunded > 0) log.warn(`${refunded} partie(s) interrompue(s) : mises remboursées`);
     const extras = new EconomyExtrasStore(ctx.db);
+    const events = new EventSettingsStore(ctx.db);
     services = {
       eco,
       progress,
@@ -139,19 +149,31 @@ export const economyModule: BotModule = {
       roleShop: new RoleShop(ctx.db, eco),
       heists: new HeistService(ctx.db, eco, extras),
       extras,
+      lottery: new LotteryService(ctx.db, eco, events),
+      seasons: new SeasonService(ctx.db, eco, events),
+      events,
       scheduler: ctx.scheduler,
     };
 
-    // Fin des rôles achetés, et rôle du plus riche vérifié toutes les heures (tâche unique à clé fixe).
+    // Tâches planifiées : fin des rôles achetés, tirages de la loterie, et deux tâches
+    // récurrentes à clé fixe (plus riche toutes les heures, clôture de saison chaque mois).
     unregisterJobs = [
       ctx.scheduler.register('shop:roleExpiry', roleExpiryHandler(getServices)),
       ctx.scheduler.register('economy:richest', async (_job, c) => {
         await updateRichest(c, getServices, log);
         return { rescheduleAt: nextHour(Date.now()) };
       }),
+      ctx.scheduler.register('lottery:draw', lotteryDrawHandler(getServices, getLogger)),
+      ctx.scheduler.register('seasons:close', async (_job, c) => {
+        await closeSeasons(c, getServices, log);
+        return { rescheduleAt: nextSeasonClose(Date.now()) };
+      }),
     ];
     if (!ctx.scheduler.getByKey(RICHEST_TICK_KEY)) {
       ctx.scheduler.schedule('economy:richest', Date.now(), {}, { key: RICHEST_TICK_KEY });
+    }
+    if (!ctx.scheduler.getByKey(SEASONS_CLOSE_KEY)) {
+      ctx.scheduler.schedule('seasons:close', nextSeasonClose(Date.now()), {}, { key: SEASONS_CLOSE_KEY });
     }
     duels = new DuelManager(getServices, getLogger);
     tables = {
@@ -182,6 +204,7 @@ export const economyModule: BotModule = {
       if (countedSessions.size > 1_000) countedSessions.delete(countedSessions.values().next().value as string);
 
       const winners = new Set(event.winnerIds);
+      for (const userId of winners) services?.seasons.addWin(event.guildId, userId, event.finishedAt);
       const unlocked = new Map<string, UnlockedAchievement[]>();
       for (const userId of new Set([...event.winnerIds, ...event.loserIds])) {
         const list = progress.record(event.guildId, userId, [
