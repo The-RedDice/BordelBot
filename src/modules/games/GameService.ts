@@ -191,6 +191,7 @@ export class GameService {
       void this.ctx.bus.emit('game:finished', {
         sessionId: id,
         guildId: p.guildId,
+        channelId: p.channelId,
         game: p.machine.kind,
         winnerIds: outcome.winnerIds,
         loserIds: outcome.loserIds,

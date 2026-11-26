@@ -1,5 +1,7 @@
 import {
+  AttachmentBuilder,
   InteractionContextType,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
   escapeMarkdown,
@@ -8,7 +10,8 @@ import {
 } from 'discord.js';
 import type { SlashCommand } from '../../../core/commands/types.js';
 import { replyEphemeral } from '../../../core/replies.js';
-import { formatAmount, MAX_AMOUNT, type EconomyService, type GuildEconomySettings } from '../EconomyService.js';
+import { transactionsCsv } from '../csv.js';
+import { formatAmount, MAX_AMOUNT, MAX_EXPORT_ROWS, type EconomyService } from '../EconomyService.js';
 import { errorText } from './format.js';
 
 /**
@@ -82,28 +85,10 @@ export function createEconomyAdminCommand(getService: () => EconomyService): Sla
     )
     .addSubcommand((s) =>
       s
-        .setName('config')
-        .setDescription('Affiche ou modifie les réglages (sans option : affiche)')
-        .addStringOption((o) => o.setName('monnaie').setDescription('Nom de la monnaie').setMaxLength(32))
-        .addIntegerOption((o) =>
-          o.setName('daily').setDescription('Montant du daily (0 = désactivé)').setMinValue(0).setMaxValue(MAX_AMOUNT),
-        )
-        .addIntegerOption((o) =>
-          o
-            .setName('recompense')
-            .setDescription('Récompense de base par victoire (0 = désactivée)')
-            .setMinValue(0)
-            .setMaxValue(MAX_AMOUNT),
-        ),
+        .setName('export')
+        .setDescription(`Exporte le journal des opérations en CSV (${MAX_EXPORT_ROWS} dernières au plus)`)
+        .addUserOption((o) => o.setName('membre').setDescription('Uniquement les opérations de ce membre')),
     );
-
-  const describeSettings = (s: GuildEconomySettings) =>
-    [
-      `**Monnaie :** ${escapeMarkdown(s.currencyName)}`,
-      `**Daily :** ${s.dailyAmount ? formatAmount(s.dailyAmount, s.currencyName) : 'désactivé'}`,
-      `**Récompense de victoire :** ${s.gameWinReward ? formatAmount(s.gameWinReward, s.currencyName) : 'désactivée'}` +
-        ' (×3 max pour un camp minoritaire)',
-    ].join('\n');
 
   async function execute(i: ChatInputCommandInteraction): Promise<void> {
     if (!i.inGuild()) return replyEphemeral(i, 'Cette commande s’utilise sur un serveur.');
@@ -147,17 +132,21 @@ export function createEconomyAdminCommand(getService: () => EconomyService): Sla
       );
     }
 
-    // config
-    const patch: { currencyName?: string; dailyAmount?: number; gameWinReward?: number } = {};
-    const monnaie = i.options.getString('monnaie');
-    const daily = i.options.getInteger('daily');
-    const recompense = i.options.getInteger('recompense');
-    if (monnaie !== null) patch.currencyName = monnaie;
-    if (daily !== null) patch.dailyAmount = daily;
-    if (recompense !== null) patch.gameWinReward = recompense;
-    if (Object.keys(patch).length === 0) return replyEphemeral(i, describeSettings(eco.getSettings(guildId)));
-    const r = eco.updateSettings(guildId, patch);
-    return replyEphemeral(i, r.ok ? `✅ Réglages mis à jour.\n${describeSettings(r.value)}` : errorText(r.error));
+    // export
+    const member = i.options.getUser('membre');
+    const rows = eco.exportTransactions(guildId, member?.id ?? null);
+    if (rows.length === 0) return replyEphemeral(i, 'Aucune opération à exporter.');
+    const date = new Date().toISOString().slice(0, 10);
+    const file = new AttachmentBuilder(Buffer.from(transactionsCsv(rows), 'utf8'), {
+      name: `transactions-${member ? member.username : 'serveur'}-${date}.csv`,
+    });
+    const truncated = rows.length >= MAX_EXPORT_ROWS ? ` (limité aux ${MAX_EXPORT_ROWS} plus récentes)` : '';
+    await i.reply({
+      content: `📄 ${rows.length} opération(s)${member ? ` de ${member}` : ''}${truncated}.`,
+      files: [file],
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] },
+    });
   }
 
   return { data, execute };

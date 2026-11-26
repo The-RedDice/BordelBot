@@ -1,10 +1,13 @@
 import type { BotContext } from '../../core/context.js';
 import type { Db } from '../../core/database/connection.js';
 import type { ModerationAction } from '../../core/events.js';
+import type { ThresholdAction, WarnThreshold } from './thresholds.js';
 
 export type { ModerationAction };
 
 export const MAX_REASON_LENGTH = 500;
+export const MAX_WARN_EXPIRY_DAYS = 3650;
+const DAY_MS = 86_400_000;
 
 export interface ModerationCase {
   readonly id: number;
@@ -21,6 +24,8 @@ export interface ModerationCase {
   readonly metadata: Readonly<Record<string, unknown>> | null;
   readonly revoked: boolean;
   readonly createdAt: number;
+  /** Ban temporaire levé, ou verrouillage annulé. */
+  readonly resolvedAt: number | null;
 }
 
 export interface NewCase {
@@ -50,11 +55,12 @@ interface CaseRow {
   metadata: string | null;
   revoked: number;
   createdAt: number;
+  resolvedAt: number | null;
 }
 
 const CASE_COLUMNS = `id, guild_id AS guildId, case_number AS caseNumber, action, target_id AS targetId,
   moderator_id AS moderatorId, reason, duration_ms AS durationMs, expires_at AS expiresAt, metadata,
-  revoked, created_at AS createdAt`;
+  revoked, created_at AS createdAt, resolved_at AS resolvedAt`;
 
 function toCase(r: CaseRow): ModerationCase {
   return { ...r, revoked: r.revoked === 1, metadata: r.metadata ? (JSON.parse(r.metadata) as Record<string, unknown>) : null };
@@ -80,10 +86,41 @@ function prepareStatements(db: Db) {
        ORDER BY case_number DESC LIMIT ?`,
     ),
     activeWarns: db
-      .prepare<[string, string], number>(
-        "SELECT COUNT(*) FROM moderation_cases WHERE guild_id = ? AND target_id = ? AND action = 'warn' AND revoked = 0",
+      .prepare<[string, string, number], number>(
+        `SELECT COUNT(*) FROM moderation_cases
+         WHERE guild_id = ? AND target_id = ? AND action = 'warn' AND revoked = 0 AND created_at >= ?`,
       )
       .pluck(),
+    dueBans: db.prepare<[number, number], CaseRow>(
+      `SELECT ${CASE_COLUMNS} FROM moderation_cases
+       WHERE action = 'ban' AND expires_at IS NOT NULL AND resolved_at IS NULL AND expires_at <= ?
+       ORDER BY expires_at LIMIT ?`,
+    ),
+    resolve: db.prepare('UPDATE moderation_cases SET resolved_at = @now WHERE id = @id AND resolved_at IS NULL'),
+    resolveBansFor: db.prepare(
+      `UPDATE moderation_cases SET resolved_at = @now
+       WHERE guild_id = @guildId AND target_id = @targetId AND action = 'ban' AND resolved_at IS NULL`,
+    ),
+    openLock: db.prepare<[string, string], CaseRow>(
+      `SELECT ${CASE_COLUMNS} FROM moderation_cases
+       WHERE guild_id = ? AND target_id = ? AND action = 'lock' AND resolved_at IS NULL
+       ORDER BY case_number DESC LIMIT 1`,
+    ),
+    getExpiry: db.prepare<[string], number>('SELECT warn_expiry_days FROM guild_settings WHERE guild_id = ?').pluck(),
+    setExpiry: db.prepare(
+      `INSERT INTO guild_settings (guild_id, warn_expiry_days, created_at, updated_at)
+       VALUES (@guildId, @days, @now, @now)
+       ON CONFLICT (guild_id) DO UPDATE SET warn_expiry_days = excluded.warn_expiry_days, updated_at = excluded.updated_at`,
+    ),
+    thresholds: db.prepare<[string], { warnCount: number; action: ThresholdAction; durationMs: number | null }>(
+      `SELECT warn_count AS warnCount, action, duration_ms AS durationMs
+       FROM moderation_thresholds WHERE guild_id = ? ORDER BY warn_count`,
+    ),
+    clearThresholds: db.prepare('DELETE FROM moderation_thresholds WHERE guild_id = ?'),
+    insertThreshold: db.prepare(
+      `INSERT INTO moderation_thresholds (guild_id, warn_count, action, duration_ms)
+       VALUES (@guildId, @warnCount, @action, @durationMs)`,
+    ),
     revoke: db.prepare('UPDATE moderation_cases SET revoked = 1, metadata = @metadata WHERE id = @id'),
     getLogChannel: db
       .prepare<[string], string | null>('SELECT mod_log_channel_id FROM guild_settings WHERE guild_id = ?')
@@ -157,8 +194,71 @@ export class ModerationService {
       .map(toCase);
   }
 
+  /** Avertissements non révoqués et non expirés. */
   countActiveWarns(guildId: string, targetId: string): number {
-    return this.stmts.activeWarns.get(guildId, targetId) ?? 0;
+    return this.stmts.activeWarns.get(guildId, targetId, this.warnCutoff(guildId)) ?? 0;
+  }
+
+  /** Un avertissement créé avant cette date est expiré (0 si les avertissements n'expirent pas). */
+  warnCutoff(guildId: string): number {
+    const days = this.getWarnExpiryDays(guildId);
+    return days > 0 ? this.clock() - days * DAY_MS : 0;
+  }
+
+  isWarnExpired(c: ModerationCase): boolean {
+    return c.action === 'warn' && c.createdAt < this.warnCutoff(c.guildId);
+  }
+
+  getWarnExpiryDays(guildId: string): number {
+    return this.stmts.getExpiry.get(guildId) ?? 0;
+  }
+
+  setWarnExpiryDays(guildId: string, days: number): void {
+    if (!Number.isInteger(days) || days < 0 || days > MAX_WARN_EXPIRY_DAYS) {
+      throw new RangeError(`Durée d'expiration invalide : ${days}`);
+    }
+    this.stmts.setExpiry.run({ guildId, days, now: this.clock() });
+  }
+
+  // ----- Paliers de sanctions automatiques -----
+
+  getThresholds(guildId: string): WarnThreshold[] {
+    return this.stmts.thresholds.all(guildId);
+  }
+
+  /** Remplace tous les paliers du serveur. */
+  setThresholds(guildId: string, thresholds: readonly WarnThreshold[]): void {
+    this.ctx.db.transaction(() => {
+      this.stmts.clearThresholds.run(guildId);
+      for (const t of thresholds) this.stmts.insertThreshold.run({ guildId, ...t });
+    })();
+  }
+
+  /** Palier déclenché quand un membre atteint exactement ce nombre d'avertissements. */
+  thresholdFor(guildId: string, warnCount: number): WarnThreshold | null {
+    return this.getThresholds(guildId).find((t) => t.warnCount === warnCount) ?? null;
+  }
+
+  // ----- Tâches différées : bans temporaires, verrouillages -----
+
+  /** Bans temporaires arrivés à échéance et pas encore levés, tous serveurs confondus. */
+  dueTempbans(limit = 50): ModerationCase[] {
+    return this.stmts.dueBans.all(this.clock(), limit).map(toCase);
+  }
+
+  resolveCase(caseId: number): void {
+    this.stmts.resolve.run({ id: caseId, now: this.clock() });
+  }
+
+  /** Un débannissement manuel clôt les bans temporaires en attente de ce membre. */
+  resolveBans(guildId: string, targetId: string): void {
+    this.stmts.resolveBansFor.run({ guildId, targetId, now: this.clock() });
+  }
+
+  /** Dernier verrouillage encore actif d'un salon (pour restaurer les permissions d'origine). */
+  openLock(guildId: string, channelId: string): ModerationCase | null {
+    const row = this.stmts.openLock.get(guildId, channelId);
+    return row ? toCase(row) : null;
   }
 
   /** Annule un avertissement (il reste dans le journal, marqué révoqué, avec l'auteur et le motif). */

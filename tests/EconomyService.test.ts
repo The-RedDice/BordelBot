@@ -122,6 +122,7 @@ describe('EconomyService', () => {
     const event = (over: Partial<BotEvents['game:finished']> = {}): BotEvents['game:finished'] => ({
       sessionId: 'game-1',
       guildId: G,
+      channelId: 'chan',
       game: 'mole',
       winnerIds: ['a', 'b', 'c'],
       loserIds: ['m'],
@@ -155,10 +156,11 @@ describe('EconomyService', () => {
       const { economyModule } = await import('../src/modules/economy/index.js');
       await economyModule.init?.({ db, bus, logger: nullLogger });
       await bus.emit('game:finished', event({ sessionId: 'game-bus' }));
-      expect(eco.getBalance(G, 'b')).toBe(50);
+      // 50 de victoire + 50 pour le succès « Première victoire ».
+      expect(eco.getBalance(G, 'b')).toBe(100);
       await economyModule.dispose?.();
       await bus.emit('game:finished', event({ sessionId: 'game-after-dispose' }));
-      expect(eco.getBalance(G, 'b')).toBe(50);
+      expect(eco.getBalance(G, 'b')).toBe(100);
     });
   });
 
@@ -263,9 +265,9 @@ describe('EconomyService', () => {
     });
   });
 
-  it('applique la migration 002', () => {
+  it('applique les migrations économiques', () => {
     const cols = db.prepare("SELECT name FROM pragma_table_info('economy_transactions')").pluck().all();
     expect(cols).toContain('note');
-    expect(runMigrations(db, migrations).currentVersion).toBe(2);
+    expect(runMigrations(db, migrations).currentVersion).toBe(migrations.length);
   });
 });

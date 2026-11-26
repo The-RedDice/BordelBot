@@ -5,7 +5,7 @@ import { runMigrations } from '../src/core/database/migrator.js';
 import { EventBus } from '../src/core/EventBus.js';
 import type { BotEvents } from '../src/core/events.js';
 import { nullLogger } from '../src/core/logger.js';
-import { economyModule, getEconomyService } from '../src/modules/economy/index.js';
+import { economyModule, getEconomyService, getEconomyServices } from '../src/modules/economy/index.js';
 import { seededRng } from '../src/modules/games/engine/rng.js';
 import { GameService } from '../src/modules/games/GameService.js';
 import { createMoleLobby, createMoleMachine, currentTurnPlayer } from '../src/modules/games/mole/machine.js';
@@ -42,19 +42,26 @@ describe('Jeux → EventBus → Économie', () => {
     expect(session.state.phase).toBe('finished');
     const moleId = (session.state as Extract<typeof session.state, { phase: 'finished' }>).moleId;
     const eco = getEconomyService();
-    expect(eco.getBalance('g', moleId)).toBe(150);
+    // 150 (×3, seule contre 3) + 50 pour le succès « Première victoire ».
+    expect(eco.getBalance('g', moleId)).toBe(200);
+    const services = getEconomyServices();
+    expect(services.progress.stats('g', moleId)).toMatchObject({ games_played: 1, games_won: 1 });
+    expect(services.progress.stats('g', 'alice' === moleId ? 'bob' : 'alice')).toMatchObject({ games_played: 1 });
     for (const p of ['alice', 'bob', 'carol', 'dave'].filter((x) => x !== moleId)) expect(eco.getBalance('g', p)).toBe(0);
 
     // Rejouer l'événement (ex. double émission) ne crédite pas deux fois.
     await ctx.bus.emit('game:finished', {
       sessionId: session.id,
       guildId: 'g',
+      channelId: 'c',
       game: 'mole',
       winnerIds: [moleId],
       loserIds: [],
       finishedAt: 0,
     });
-    expect(eco.getBalance('g', moleId)).toBe(150);
+    expect(eco.getBalance('g', moleId)).toBe(200);
+    // …ni ne recompte la partie dans les statistiques.
+    expect(services.progress.stats('g', moleId)).toMatchObject({ games_played: 1, games_won: 1 });
 
     await economyModule.dispose?.();
     db.close();

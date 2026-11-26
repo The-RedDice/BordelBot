@@ -6,6 +6,7 @@ import { nullLogger } from '../src/core/logger.js';
 const payload: BotEvents['game:finished'] = {
   sessionId: 's1',
   guildId: 'g1',
+  channelId: 'c1',
   game: 'mole',
   winnerIds: ['u1'],
   loserIds: ['u2'],

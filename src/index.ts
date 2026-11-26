@@ -14,7 +14,7 @@ import { modules } from './modules/index.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const logger = createLogger(config.logLevel);
+  const logger = createLogger(config.logLevel, 'bot', config.logFormat);
 
   const db = openDatabase(config.databasePath);
   const { applied, currentVersion } = runMigrations(db, migrations, logger.child('db'));
@@ -29,8 +29,15 @@ async function main(): Promise<void> {
   }
 
   const client = createDiscordClient();
-  client.once(Events.ClientReady, (c) => {
+  client.once(Events.ClientReady, async (c) => {
     logger.info(`Connecté en tant que ${c.user.tag} (${registry.allCommands().length} commande(s))`);
+    for (const mod of modules) {
+      try {
+        await mod.ready?.(c);
+      } catch (err) {
+        logger.error(`Échec du démarrage des tâches du module ${mod.name}`, err);
+      }
+    }
   });
   client.on(Events.InteractionCreate, createInteractionRouter(registry, ctx));
   client.on(Events.Error, (err) => logger.error('Erreur du client Discord', err));

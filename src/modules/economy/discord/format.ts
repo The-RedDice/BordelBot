@@ -11,12 +11,17 @@ const KIND_LABELS: Record<TransactionKind, string> = {
   game_reward: '🏆 Victoire',
   purchase: '🛒 Achat',
   admin_adjust: '🛠️ Ajustement',
+  gamble: '🎰 Jeu d’argent',
+  duel: '⚔️ Duel',
+  market_buy: '📈 Achat en bourse',
+  market_sell: '📉 Vente en bourse',
+  achievement: '🏅 Succès',
 };
 
 const GAME_LABELS: Record<string, string> = { mole: 'La Taupe', 'one-vs-all': '1 contre tous' };
 
 export function signedAmount(amount: number, currency: string): string {
-  return `${amount > 0 ? '+' : '−'}${formatAmount(Math.abs(amount), currency)}`;
+  return `${amount > 0 ? '+' : amount < 0 ? '−' : ''}${formatAmount(Math.abs(amount), currency)}`;
 }
 
 export function transactionLine(tx: Transaction, currency: string): string {
@@ -34,3 +39,28 @@ export function errorText(error: EconomyError): string {
 }
 
 export const MEDALS = ['🥇', '🥈', '🥉'] as const;
+
+/** Lignes « succès débloqué » à ajouter à une réponse. `who` : mention, pour un message public à plusieurs. */
+export function achievementLines(
+  unlocked: readonly { achievement: { emoji: string; name: string }; reward: number }[],
+  currency: string,
+  who?: string,
+): string[] {
+  return unlocked.map(
+    ({ achievement: a, reward }) =>
+      `🏅 ${who ? `${who} débloque` : 'Succès débloqué :'} **${a.emoji} ${a.name}**` +
+      (reward > 0 ? ` (+${formatAmount(reward, currency)})` : ''),
+  );
+}
+
+/** « ▲ +3,2 % » / « ▼ −1,5 % » ; « — » sans donnée. */
+export function percentChange(change: number | null): string {
+  if (change === null) return '—';
+  const text = new Intl.NumberFormat('fr-FR', {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    signDisplay: 'exceptZero',
+  }).format(change);
+  return `${change > 0 ? '▲' : change < 0 ? '▼' : '•'} ${text}`;
+}

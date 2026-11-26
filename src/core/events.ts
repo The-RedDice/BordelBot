@@ -9,6 +9,8 @@ export interface BotEvents {
   'game:finished': {
     readonly sessionId: string;
     readonly guildId: string;
+    /** Salon de la partie : permet d'y annoncer des effets (succès débloqués…). */
+    readonly channelId: string;
     readonly game: GameKind;
     readonly winnerIds: readonly string[];
     readonly loserIds: readonly string[];
@@ -30,4 +32,14 @@ export interface BotEvents {
   };
 }
 
-export type ModerationAction = 'warn' | 'timeout' | 'untimeout' | 'kick' | 'ban' | 'unban' | 'purge';
+export type ModerationAction =
+  | 'warn'
+  | 'timeout'
+  | 'untimeout'
+  | 'kick'
+  | 'ban'
+  | 'unban'
+  | 'purge'
+  | 'lock'
+  | 'unlock'
+  | 'slowmode';

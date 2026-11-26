@@ -5,7 +5,7 @@ import { runMigrations } from '../core/database/migrator.js';
 import { createLogger } from '../core/logger.js';
 
 const config = loadDatabaseConfig();
-const logger = createLogger(config.logLevel, 'migrate');
+const logger = createLogger(config.logLevel, 'migrate', config.logFormat);
 const db = openDatabase(config.databasePath);
 try {
   const { applied, currentVersion } = runMigrations(db, migrations, logger);

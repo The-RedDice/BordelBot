@@ -16,6 +16,8 @@ export const STREAK_BONUS_STEP = 0.1;
 export const MAX_STREAK_BONUS_DAYS = 10;
 export const MAX_PURCHASE_QUANTITY = 100;
 export const ITEM_KEY_PATTERN = /^[a-z0-9-]{1,32}$/;
+/** Nombre maximal de lignes d'un export CSV (≈ 2 Mo, sous la limite d'upload de Discord). */
+export const MAX_EXPORT_ROWS = 20_000;
 
 // ---------- Types ----------
 
@@ -23,11 +25,29 @@ export interface GuildEconomySettings {
   readonly currencyName: string;
   readonly dailyAmount: number;
   readonly gameWinReward: number;
+  /** Mise maximale aux jeux d'argent ; 0 les désactive. */
+  readonly maxBet: number;
 }
 
-export const DEFAULT_SETTINGS: GuildEconomySettings = { currencyName: 'pièces', dailyAmount: 100, gameWinReward: 50 };
+export const DEFAULT_SETTINGS: GuildEconomySettings = {
+  currencyName: 'pièces',
+  dailyAmount: 100,
+  gameWinReward: 50,
+  maxBet: 10_000,
+};
 
-export type TransactionKind = 'daily' | 'transfer_in' | 'transfer_out' | 'game_reward' | 'purchase' | 'admin_adjust';
+export type TransactionKind =
+  | 'daily'
+  | 'transfer_in'
+  | 'transfer_out'
+  | 'game_reward'
+  | 'purchase'
+  | 'admin_adjust'
+  | 'gamble'
+  | 'duel'
+  | 'market_buy'
+  | 'market_sell'
+  | 'achievement';
 
 export interface Transaction {
   readonly id: number;
@@ -95,7 +115,12 @@ export type EconomyErrorCode =
   | 'INVALID_ITEM'
   | 'ITEM_NOT_FOUND'
   | 'INVALID_QUANTITY'
-  | 'ALREADY_OWNED';
+  | 'ALREADY_OWNED'
+  | 'GAMBLING_DISABLED'
+  | 'BET_TOO_HIGH'
+  | 'UNKNOWN_ASSET'
+  | 'INSUFFICIENT_SHARES'
+  | 'TRADE_TOO_SMALL';
 
 export interface EconomyError {
   readonly code: EconomyErrorCode;
@@ -114,7 +139,7 @@ class EconomyFailure extends Error {
   }
 }
 
-function fail(code: EconomyErrorCode, message: string, extra: { retryAt?: number } = {}): never {
+export function fail(code: EconomyErrorCode, message: string, extra: { retryAt?: number } = {}): never {
   throw new EconomyFailure({ code, message, ...extra });
 }
 
@@ -139,20 +164,29 @@ interface ItemRow {
 }
 
 const ITEM_COLUMNS = 'id, key, name, description, price, stackable, enabled';
+
+/** Ligne d'export : une transaction et son titulaire. */
+export interface ExportRow extends Transaction {
+  readonly userId: string;
+}
+
+const EXPORT_COLUMNS = `id, user_id AS userId, amount, balance_after AS balanceAfter, kind,
+  counterparty_id AS counterpartyId, reference, note, created_at AS createdAt`;
 const toItem = (r: ItemRow): ShopItem => ({ ...r, stackable: r.stackable === 1, enabled: r.enabled === 1 });
 
 function prepareStatements(db: Db) {
   return {
     getSettings: db.prepare<[string], GuildEconomySettings>(
-      `SELECT currency_name AS currencyName, daily_amount AS dailyAmount, game_win_reward AS gameWinReward
+      `SELECT currency_name AS currencyName, daily_amount AS dailyAmount, game_win_reward AS gameWinReward,
+              max_bet AS maxBet
        FROM guild_settings WHERE guild_id = ?`,
     ),
     upsertSettings: db.prepare(
-      `INSERT INTO guild_settings (guild_id, currency_name, daily_amount, game_win_reward, created_at, updated_at)
-       VALUES (@guildId, @currencyName, @dailyAmount, @gameWinReward, @now, @now)
+      `INSERT INTO guild_settings (guild_id, currency_name, daily_amount, game_win_reward, max_bet, created_at, updated_at)
+       VALUES (@guildId, @currencyName, @dailyAmount, @gameWinReward, @maxBet, @now, @now)
        ON CONFLICT (guild_id) DO UPDATE SET
          currency_name = excluded.currency_name, daily_amount = excluded.daily_amount,
-         game_win_reward = excluded.game_win_reward, updated_at = excluded.updated_at`,
+         game_win_reward = excluded.game_win_reward, max_bet = excluded.max_bet, updated_at = excluded.updated_at`,
     ),
     getAccount: db.prepare<[string, string], { balance: number; lastDailyAt: number | null; dailyStreak: number }>(
       `SELECT balance, last_daily_at AS lastDailyAt, daily_streak AS dailyStreak
@@ -192,6 +226,16 @@ function prepareStatements(db: Db) {
               reference, note, created_at AS createdAt
        FROM economy_transactions WHERE guild_id = ? AND user_id = ? ORDER BY id DESC LIMIT ?`,
     ),
+    exportAll: db.prepare<[string, number], ExportRow>(
+      `SELECT * FROM (
+         SELECT ${EXPORT_COLUMNS} FROM economy_transactions WHERE guild_id = ? ORDER BY id DESC LIMIT ?
+       ) ORDER BY id`,
+    ),
+    exportUser: db.prepare<[string, string, number], ExportRow>(
+      `SELECT * FROM (
+         SELECT ${EXPORT_COLUMNS} FROM economy_transactions WHERE guild_id = ? AND user_id = ? ORDER BY id DESC LIMIT ?
+       ) ORDER BY id`,
+    ),
     getItem: db.prepare<[string, string], ItemRow>(`SELECT ${ITEM_COLUMNS} FROM shop_items WHERE guild_id = ? AND key = ?`),
     listItems: db.prepare<[string], ItemRow>(
       `SELECT ${ITEM_COLUMNS} FROM shop_items WHERE guild_id = ? AND enabled = 1 ORDER BY price, name`,
@@ -222,7 +266,7 @@ function prepareStatements(db: Db) {
   };
 }
 
-interface DeltaParams {
+export interface DeltaParams {
   readonly guildId: string;
   readonly userId: string;
   readonly delta: number;
@@ -233,6 +277,18 @@ interface DeltaParams {
 }
 
 type BalanceChange = BotEvents['economy:balanceChanged'];
+
+/**
+ * Accès au grand livre pendant une opération composée (`transact`). Tout ce qui
+ * est fait via le ledger et dans le callback est atomique : un `fail` annule tout.
+ */
+export interface Ledger {
+  /** Applique une variation de solde journalisée ; renvoie le nouveau solde. */
+  apply(p: DeltaParams): number;
+  balance(guildId: string, userId: string): number;
+  settings(guildId: string): GuildEconomySettings;
+  now(): number;
+}
 
 export interface EconomyServiceOptions {
   readonly clock?: () => number;
@@ -252,6 +308,7 @@ export class EconomyService {
   private readonly clock: () => number;
   private readonly logger: Logger;
   private pending: BalanceChange[] = [];
+  private running = false;
 
   constructor(
     private readonly ctx: Pick<BotContext, 'db' | 'bus' | 'logger'>,
@@ -276,6 +333,7 @@ export class EconomyService {
       for (const [field, label] of [
         ['dailyAmount', 'Le montant du daily'],
         ['gameWinReward', 'La récompense de victoire'],
+        ['maxBet', 'La mise maximale'],
       ] as const) {
         const v = next[field];
         if (!Number.isSafeInteger(v) || v < 0 || v > MAX_AMOUNT) {
@@ -307,6 +365,38 @@ export class EconomyService {
 
   history(guildId: string, userId: string, limit = 10): Transaction[] {
     return this.stmts.history.all(guildId, userId, limit);
+  }
+
+  /** Les `limit` dernières opérations du serveur (ou d'un membre), de la plus ancienne à la plus récente. */
+  exportTransactions(guildId: string, userId: string | null, limit = MAX_EXPORT_ROWS): ExportRow[] {
+    return userId === null
+      ? this.stmts.exportAll.all(guildId, limit)
+      : this.stmts.exportUser.all(guildId, userId, limit);
+  }
+
+  /** Série de daily en cours (0 si elle est rompue). */
+  currentStreak(guildId: string, userId: string): number {
+    const account = this.stmts.getAccount.get(guildId, userId);
+    if (!account?.lastDailyAt) return 0;
+    return this.clock() - account.lastDailyAt <= STREAK_WINDOW_MS ? account.dailyStreak : 0;
+  }
+
+  // ----- Opérations composées (jeux d'argent, bourse, succès) -----
+
+  /**
+   * Exécute `fn` dans une transaction, avec accès au grand livre. Les erreurs
+   * levées par `fail()` deviennent un résultat `{ ok: false }` et annulent tout,
+   * écritures du module appelant comprises (même connexion SQLite).
+   */
+  transact<T>(fn: (ledger: Ledger) => T): EcoResult<T> {
+    return this.run(() =>
+      fn({
+        apply: (p) => this.applyDelta(p),
+        balance: (guildId, userId) => this.getBalance(guildId, userId),
+        settings: (guildId) => this.getSettings(guildId),
+        now: () => this.clock(),
+      }),
+    );
   }
 
   // ----- Daily -----
@@ -528,14 +618,19 @@ export class EconomyService {
 
   /** Exécute `fn` dans une transaction, convertit les EconomyFailure en résultat, émet les événements après commit. */
   private run<T>(fn: () => T): EcoResult<T> {
+    // Une opération dans une autre perdrait les événements en attente de l'englobante.
+    if (this.running) throw new Error('Opération économique imbriquée : utiliser le ledger de transact()');
     this.pending = [];
+    this.running = true;
     try {
       const value = this.ctx.db.transaction(fn)();
+      this.running = false;
       const events = this.pending;
       this.pending = [];
       for (const e of events) void this.ctx.bus.emit('economy:balanceChanged', e);
       return { ok: true, value };
     } catch (err) {
+      this.running = false;
       this.pending = [];
       if (err instanceof EconomyFailure) return { ok: false, error: err.error };
       this.logger.error('Erreur inattendue dans une opération économique', err);

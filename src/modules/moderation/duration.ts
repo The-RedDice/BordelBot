@@ -6,6 +6,8 @@ const WEEK = 7 * DAY;
 
 /** Durée maximale d'un timeout imposée par Discord. */
 export const MAX_TIMEOUT_MS = 28 * DAY;
+/** Au-delà, un ban temporaire n'a pas de sens : autant bannir définitivement. */
+export const MAX_TEMPBAN_MS = 3650 * DAY;
 
 const UNITS: Readonly<Record<string, number>> = {
   s: SECOND, sec: SECOND, seconde: SECOND, secondes: SECOND,

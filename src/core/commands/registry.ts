@@ -6,7 +6,13 @@ export class CommandRegistry {
   private readonly components = new Map<string, ComponentHandler>();
 
   constructor(modules: readonly BotModule[]) {
+    const sections = new Set<string>();
     for (const mod of modules) {
+      for (const section of mod.settings ?? []) {
+        if (section.id.includes(':')) throw new Error(`Section de réglages invalide "${section.id}" : ":" interdit`);
+        if (sections.has(section.id)) throw new Error(`Section de réglages "${section.id}" déclarée deux fois (module ${mod.name})`);
+        sections.add(section.id);
+      }
       for (const cmd of mod.commands ?? []) {
         const name = cmd.data.name;
         if (this.commands.has(name)) throw new Error(`Commande "/${name}" déclarée deux fois (module ${mod.name})`);

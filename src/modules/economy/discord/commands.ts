@@ -1,48 +1,17 @@
-import {
-  EmbedBuilder,
-  InteractionContextType,
-  MessageFlags,
-  SlashCommandBuilder,
-  escapeMarkdown,
-  type AutocompleteInteraction,
-  type ChatInputCommandInteraction,
-  type User,
-} from 'discord.js';
+import { EmbedBuilder, MessageFlags, escapeMarkdown, type AutocompleteInteraction } from 'discord.js';
 import type { SlashCommand } from '../../../core/commands/types.js';
 import { relativeTime, replyEphemeral } from '../../../core/replies.js';
-import { formatAmount, MAX_AMOUNT, MAX_PURCHASE_QUANTITY, type EconomyService } from '../EconomyService.js';
-import { ECONOMY_COLOR, errorText, MEDALS, transactionLine } from './format.js';
+import { formatAmount, MAX_AMOUNT, MAX_PURCHASE_QUANTITY } from '../EconomyService.js';
+import type { GetServices } from '../services.js';
+import { achievementLines, ECONOMY_COLOR, errorText, MEDALS, transactionLine } from './format.js';
+import { guildCommand as base, guildOnly, rejectBot } from './helpers.js';
 
-type GetService = () => EconomyService;
-type GuildCommand = ChatInputCommandInteraction<'cached' | 'raw'>;
-
-/** Toutes les commandes d'économie sont réservées aux serveurs. */
-function guildOnly(
-  handler: (i: GuildCommand, eco: EconomyService) => Promise<void>,
-  getService: GetService,
-): SlashCommand['execute'] {
-  return async (interaction) => {
-    if (!interaction.inGuild()) return replyEphemeral(interaction, 'Cette commande s’utilise sur un serveur.');
-    return handler(interaction, getService());
-  };
-}
-
-/** Les bots n'ont pas de compte : on le signale plutôt que d'afficher un solde vide. */
-async function rejectBot(interaction: GuildCommand, user: User): Promise<boolean> {
-  if (!user.bot) return false;
-  await replyEphemeral(interaction, 'Les bots n’ont pas de compte.');
-  return true;
-}
-
-const base = (name: string, description: string) =>
-  new SlashCommandBuilder().setName(name).setDescription(description).setContexts(InteractionContextType.Guild);
-
-export function createEconomyCommands(getService: GetService): SlashCommand[] {
+export function createEconomyCommands(getService: GetServices): SlashCommand[] {
   const solde: SlashCommand = {
     data: base('solde', 'Affiche ton solde ou celui d’un membre').addUserOption((o) =>
       o.setName('membre').setDescription('Membre à consulter'),
     ),
-    execute: guildOnly(async (i, eco) => {
+    execute: guildOnly(async (i, { eco }) => {
       const user = i.options.getUser('membre') ?? i.user;
       if (await rejectBot(i, user)) return;
       const { currencyName } = eco.getSettings(i.guildId);
@@ -60,15 +29,19 @@ export function createEconomyCommands(getService: GetService): SlashCommand[] {
 
   const daily: SlashCommand = {
     data: base('daily', 'Récupère ta récompense quotidienne'),
-    execute: guildOnly(async (i, eco) => {
+    execute: guildOnly(async (i, { eco, progress }) => {
       const r = eco.claimDaily(i.guildId, i.user.id);
       if (!r.ok) return replyEphemeral(i, errorText(r.error));
       const { currencyName } = eco.getSettings(i.guildId);
-      const { amount, bonus, streak, balance, nextAt } = r.value;
+      const { amount, bonus, streak, nextAt } = r.value;
+      const unlocked = progress.record(i.guildId, i.user.id, [{ stat: 'daily_best_streak', max: streak }]);
+      // Relu après `record` : un succès débloqué a pu verser une récompense.
+      const balance = eco.getBalance(i.guildId, i.user.id);
       const lines = [
         `🎁 Tu reçois **${formatAmount(amount, currencyName)}** !`,
         streak > 1 ? `🔥 Série de ${streak} jours (bonus : ${formatAmount(bonus, currencyName)})` : null,
         `Nouveau solde : ${formatAmount(balance, currencyName)} · prochaine récompense ${relativeTime(nextAt)}`,
+        ...achievementLines(unlocked, currencyName),
       ];
       await i.reply({ content: lines.filter(Boolean).join('\n') });
     }, getService),
@@ -80,16 +53,19 @@ export function createEconomyCommands(getService: GetService): SlashCommand[] {
       .addIntegerOption((o) =>
         o.setName('montant').setDescription('Montant à envoyer').setRequired(true).setMinValue(1).setMaxValue(MAX_AMOUNT),
       ),
-    execute: guildOnly(async (i, eco) => {
+    execute: guildOnly(async (i, { eco, progress }) => {
       const target = i.options.getUser('membre', true);
       if (await rejectBot(i, target)) return;
       const r = eco.transfer(i.guildId, i.user.id, target.id, i.options.getInteger('montant', true));
       if (!r.ok) return replyEphemeral(i, errorText(r.error));
       const { currencyName } = eco.getSettings(i.guildId);
+      const unlocked = progress.record(i.guildId, i.user.id, [{ stat: 'transferred_total', add: r.value.amount }]);
       await i.reply({
-        content:
-          `💸 ${i.user} a envoyé **${formatAmount(r.value.amount, currencyName)}** à ${target}.\n` +
-          `Ton nouveau solde : ${formatAmount(r.value.fromBalance, currencyName)}`,
+        content: [
+          `💸 ${i.user} a envoyé **${formatAmount(r.value.amount, currencyName)}** à ${target}.`,
+          `Ton nouveau solde : ${formatAmount(eco.getBalance(i.guildId, i.user.id), currencyName)}`,
+          ...achievementLines(unlocked, currencyName),
+        ].join('\n'),
         allowedMentions: { users: [target.id] },
       });
     }, getService),
@@ -97,7 +73,7 @@ export function createEconomyCommands(getService: GetService): SlashCommand[] {
 
   const classement: SlashCommand = {
     data: base('classement', 'Les membres les plus riches du serveur'),
-    execute: guildOnly(async (i, eco) => {
+    execute: guildOnly(async (i, { eco }) => {
       const { currencyName } = eco.getSettings(i.guildId);
       const top = eco.leaderboard(i.guildId, 10);
       const lines = top.map(
@@ -115,7 +91,7 @@ export function createEconomyCommands(getService: GetService): SlashCommand[] {
 
   const historique: SlashCommand = {
     data: base('historique', 'Tes dernières opérations'),
-    execute: guildOnly(async (i, eco) => {
+    execute: guildOnly(async (i, { eco }) => {
       const { currencyName } = eco.getSettings(i.guildId);
       const txs = eco.history(i.guildId, i.user.id, 10);
       const embed = new EmbedBuilder()
@@ -130,7 +106,7 @@ export function createEconomyCommands(getService: GetService): SlashCommand[] {
 
   const boutique: SlashCommand = {
     data: base('boutique', 'Les articles en vente sur ce serveur'),
-    execute: guildOnly(async (i, eco) => {
+    execute: guildOnly(async (i, { eco }) => {
       const { currencyName } = eco.getSettings(i.guildId);
       const items = eco.listItems(i.guildId);
       const embed = new EmbedBuilder().setColor(ECONOMY_COLOR).setTitle('🛒 Boutique');
@@ -158,7 +134,7 @@ export function createEconomyCommands(getService: GetService): SlashCommand[] {
       .addIntegerOption((o) =>
         o.setName('quantite').setDescription('Quantité (1 par défaut)').setMinValue(1).setMaxValue(MAX_PURCHASE_QUANTITY),
       ),
-    execute: guildOnly(async (i, eco) => {
+    execute: guildOnly(async (i, { eco }) => {
       const r = eco.buy(i.guildId, i.user.id, i.options.getString('article', true), i.options.getInteger('quantite') ?? 1);
       if (!r.ok) return replyEphemeral(i, errorText(r.error));
       const { currencyName } = eco.getSettings(i.guildId);
@@ -171,7 +147,7 @@ export function createEconomyCommands(getService: GetService): SlashCommand[] {
     }, getService),
     async autocomplete(interaction: AutocompleteInteraction) {
       if (!interaction.guildId) return interaction.respond([]);
-      const eco = getService();
+      const { eco } = getService();
       const query = interaction.options.getFocused().toLowerCase();
       const { currencyName } = eco.getSettings(interaction.guildId);
       const choices = eco
@@ -187,7 +163,7 @@ export function createEconomyCommands(getService: GetService): SlashCommand[] {
     data: base('inventaire', 'Affiche ton inventaire ou celui d’un membre').addUserOption((o) =>
       o.setName('membre').setDescription('Membre à consulter'),
     ),
-    execute: guildOnly(async (i, eco) => {
+    execute: guildOnly(async (i, { eco }) => {
       const user = i.options.getUser('membre') ?? i.user;
       if (await rejectBot(i, user)) return;
       const items = eco.inventory(i.guildId, user.id);

@@ -183,6 +183,7 @@ describe('rendu des sanctions', () => {
     metadata: null,
     revoked: false,
     createdAt: 1_700_000_000_000,
+    resolvedAt: null,
   };
 
   it('embed de log complet et valide', () => {

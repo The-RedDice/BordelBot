@@ -34,7 +34,7 @@ export const coreModule: BotModule = {
     },
     {
       data: new SlashCommandBuilder().setName('info').setDescription('Informations sur le bot : version, latence, etc.'),
-      async execute(interaction) {
+      async execute(interaction, ctx) {
         const response = await interaction.reply({
           content: 'Mesure de la latence…',
           flags: MessageFlags.Ephemeral,
@@ -46,12 +46,13 @@ export const coreModule: BotModule = {
         const { client } = interaction;
         const wsPing = client.ws.ping;
         const startedAt = client.readyTimestamp;
+        const schema = ctx.db.prepare('SELECT MAX(version) FROM schema_migrations').pluck().get() as number | null;
 
         const embed = new EmbedBuilder()
           .setColor(0x5865f2)
           .setAuthor({ name: client.user.username, iconURL: client.user.displayAvatarURL() })
           .addFields(
-            { name: '📦 Version', value: `v${botVersion}`, inline: true },
+            { name: '📦 Version', value: `v${botVersion} · schéma v${schema ?? 0}`, inline: true },
             { name: '📡 WebSocket', value: wsPing >= 0 ? `${wsPing} ms` : 'n/d', inline: true },
             { name: '⏱️ Aller-retour', value: roundTrip, inline: true },
             { name: '🕒 Démarré', value: startedAt ? relativeTime(startedAt) : 'n/d', inline: true },
