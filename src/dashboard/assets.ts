@@ -1,25 +1,20 @@
+import { readFileSync } from 'node:fs';
+
 /**
- * Fichiers servis par le tableau de bord, embarqués dans le code (rien à copier
- * dans dist/ au build). Phase 1 : page provisoire ; l'interface complète suit.
+ * Fichiers de l'interface (`src/dashboard/web/`), lus une fois au démarrage.
+ * Le chemin relatif est le même depuis `src/dashboard/` (tsx) et
+ * `dist/dashboard/` (build) : rien à copier dans dist/.
  */
 export interface Asset {
   readonly type: string;
   readonly body: string;
 }
 
-const INDEX = `<!doctype html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BordelBot · tableau de bord</title>
-</head>
-<body>
-<h1>BordelBot</h1>
-<p>Tableau de bord en construction. <a href="/auth/login">Se connecter avec Discord</a></p>
-</body>
-</html>`;
+const WEB_DIR = new URL('../../src/dashboard/web/', import.meta.url);
+const read = (name: string): string => readFileSync(new URL(name, WEB_DIR), 'utf8');
 
 export const ASSETS: Readonly<Record<string, Asset>> = {
-  '/': { type: 'text/html; charset=utf-8', body: INDEX },
+  '/': { type: 'text/html; charset=utf-8', body: read('index.html') },
+  '/app.css': { type: 'text/css; charset=utf-8', body: read('app.css') },
+  '/app.js': { type: 'text/javascript; charset=utf-8', body: read('app.js') },
 };

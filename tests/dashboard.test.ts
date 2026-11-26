@@ -198,6 +198,19 @@ describe('serveur du tableau de bord', () => {
     return session!;
   }
 
+  it('sert l’interface (page, style, script valide) sans rien d’extérieur', async () => {
+    const page = await (await get('/')).text();
+    expect(page).toContain('<script src="/app.js" defer></script>');
+    expect(page).toContain('<link rel="stylesheet" href="/app.css">');
+    expect(page).not.toMatch(/<script>|style=|https?:\/\//);
+    const css = await get('/app.css');
+    expect(css.headers.get('content-type')).toContain('text/css');
+    const js = await (await get('/app.js')).text();
+    // Le script se compile, et ne construit jamais de HTML à partir de chaînes.
+    expect(() => new Function(js)).not.toThrow();
+    expect(js).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write/);
+  });
+
   it('sert la page avec des en-têtes de sécurité', async () => {
     const res = await get('/');
     expect(res.status).toBe(200);

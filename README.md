@@ -114,6 +114,50 @@ perte de la VM, les copier ailleurs de temps en temps (`scp`).
 
 Logs : `LOG_FORMAT=json` écrit une ligne JSON par événement (filtrable avec `jq`), `text` (défaut) reste lisible.
 
+## Tableau de bord web
+
+Pages en lecture seule : la bourse (publique) et, pour chaque serveur, ses statistiques, classements, saisons,
+loterie et activité, visibles **seulement par ses membres** après connexion avec Discord. Facultatif : sans les trois
+variables ci-dessous, le bot tourne sans tableau de bord.
+
+**1. Developer Portal** (OAuth2) : copier le **Client Secret**, et ajouter la redirection `<DASHBOARD_URL>/auth/callback`.
+
+**2. `.env`** :
+
+```bash
+DASHBOARD_PORT=3000
+DASHBOARD_URL=https://bot.mondomaine.fr   # http://localhost:3000 pour tester en local
+DISCORD_CLIENT_SECRET=...
+```
+
+Pour un essai en local, `DASHBOARD_URL=http://localhost:3000` et la redirection `http://localhost:3000/auth/callback`
+suffisent : `npm run dev`, puis ouvrir http://localhost:3000.
+
+**3. Mise en ligne avec un tunnel Cloudflare** (aucun port à ouvrir sur la VM ; il faut un domaine géré par
+Cloudflare). Sur la VM (Ubuntu ARM64) :
+
+```bash
+curl -L -o cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+sudo dpkg -i cloudflared.deb
+cloudflared tunnel login                                  # ouvre une page Cloudflare : choisir le domaine
+cloudflared tunnel create bordelbot                       # affiche l'UUID du tunnel
+cloudflared tunnel route dns bordelbot bot.mondomaine.fr
+```
+
+Puis `~/.cloudflared/config.yml` :
+
+```yaml
+tunnel: <UUID>
+credentials-file: /home/ubuntu/.cloudflared/<UUID>.json
+ingress:
+  - hostname: bot.mondomaine.fr
+    service: http://localhost:3000
+  - service: http_status:404
+```
+
+Et enfin `sudo cloudflared --config ~/.cloudflared/config.yml service install` (démarrage automatique), puis
+`pm2 restart bordelbot`. Le tableau de bord n'écoute que sur `127.0.0.1` : il n'est joignable que par le tunnel.
+
 ## Architecture
 
 ```

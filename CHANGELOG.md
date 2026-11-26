@@ -1,5 +1,25 @@
 # Journal des modifications
 
+## Tableau de bord web, partie 2 : l'interface
+
+- **Accueil** : connexion avec Discord, puis la liste de tes serveurs (ceux où le bot est présent) et un résumé de la
+  bourse.
+- **Bourse** : graphique du cours (1 h, 24 h, 7 j, 30 j) avec curseur au survol, tableau des actifs avec mini-courbes
+  et dividende de CRS, actualités.
+- **Serveur** : ta situation (solde, rang, niveau), 8 cartes de statistiques (pièces en circulation, comptes actifs,
+  solde moyen et médian, part des 10 % les plus riches, investi en bourse, création monétaire et opérations sur
+  7 jours), classements à onglets (fortune, gains du mois, victoires du mois, niveaux) avec avatars, saison et
+  podiums passés, loterie et derniers gagnants, activité.
+- **Thème clair ou sombre** selon le système, **lisible sur téléphone**, rafraîchi toutes les minutes (pas quand
+  l'onglet est caché).
+- **Sûr** : aucun script ni style extérieur (CSP stricte), page construite uniquement avec le DOM (`textContent`) :
+  un pseudo ne peut pas injecter de HTML (vérifié par un test).
+- Fichiers dans `src/dashboard/web/` (`index.html`, `app.css`, `app.js`), sans framework ni étape de build ; lus au
+  démarrage, depuis `src/` comme depuis `dist/`.
+- Vérifié visuellement sur un serveur de démonstration (fausses données) : bureau clair, bureau sombre et téléphone.
+- **README** : guide de mise en ligne (Developer Portal, `.env`, tunnel Cloudflare sur la VM ARM64).
+- 309 tests.
+
 ## Tableau de bord web, partie 1 : serveur, connexion Discord, API
 
 L'interface (pages) arrive dans la partie 2 ; cette partie pose tout ce qu'il y a dessous.
