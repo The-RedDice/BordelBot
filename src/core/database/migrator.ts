@@ -18,6 +18,24 @@ export interface MigrationResult {
  * Les migrations sont du code TS (et non des .sql) : elles sont compilées avec
  * le reste et rien n'est à copier dans dist/.
  */
+/**
+ * Versions qui seraient appliquées par `runMigrations`. Une base vierge (sans
+ * table schema_migrations) renvoie toutes les versions.
+ */
+export function pendingMigrations(db: Db, migrations: readonly Migration[]): number[] {
+  const hasTable = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'")
+    .pluck()
+    .get();
+  const done = new Set(hasTable ? (db.prepare('SELECT version FROM schema_migrations').pluck().all() as number[]) : []);
+  return migrations.map((m) => m.version).filter((v) => !done.has(v)).sort((a, b) => a - b);
+}
+
+/** Vrai si la base contient déjà un schéma (donc des données à protéger). */
+export function hasSchema(db: Db, migrations: readonly Migration[]): boolean {
+  return pendingMigrations(db, migrations).length < migrations.length;
+}
+
 export function runMigrations(db: Db, migrations: readonly Migration[], logger?: Logger): MigrationResult {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (

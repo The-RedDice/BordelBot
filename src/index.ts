@@ -3,9 +3,9 @@ import { loadConfig } from './config/env.js';
 import { createDiscordClient } from './core/client.js';
 import { CommandRegistry } from './core/commands/registry.js';
 import type { BotContext } from './core/context.js';
+import { BackupScheduler, migrateWithBackup } from './core/database/backup.js';
 import { openDatabase } from './core/database/connection.js';
 import { migrations } from './core/database/migrations/index.js';
-import { runMigrations } from './core/database/migrator.js';
 import { EventBus } from './core/EventBus.js';
 import type { BotEvents } from './core/events.js';
 import { createInteractionRouter } from './core/interactionRouter.js';
@@ -17,8 +17,15 @@ async function main(): Promise<void> {
   const logger = createLogger(config.logLevel, 'bot', config.logFormat);
 
   const db = openDatabase(config.databasePath);
-  const { applied, currentVersion } = runMigrations(db, migrations, logger.child('db'));
+  const backupOptions = { dir: config.backupDir, keep: config.backupKeep, logger: logger.child('backup') };
+  const { applied, currentVersion } = await migrateWithBackup(db, migrations, {
+    ...backupOptions,
+    enabled: config.backupKeep > 0,
+  });
   logger.info(`Base prête (schéma v${currentVersion}, ${applied.length} migration(s) appliquée(s))`);
+  const backups = config.backupKeep > 0 ? new BackupScheduler(db, backupOptions) : undefined;
+  if (backups) backups.start();
+  else logger.warn('Sauvegardes désactivées (BACKUP_KEEP=0)');
 
   const ctx: BotContext = { db, bus: new EventBus<BotEvents>(logger.child('bus')), logger };
 
@@ -54,6 +61,7 @@ async function main(): Promise<void> {
         logger.error(`Échec du dispose du module ${mod.name}`, err);
       }
     }
+    backups?.stop();
     ctx.bus.clear();
     await client.destroy();
     db.close();

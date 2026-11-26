@@ -60,6 +60,12 @@ Pour modérer un membre ou lui donner un rôle de niveau, le rôle du bot doit �
 Graphiques de la bourse : ils sont rendus en PNG sur le serveur. Sous Linux, installer une police pour les
 libellés des axes : `sudo apt install fonts-dejavu-core` (sans police, la courbe s'affiche quand même, sans texte).
 
+Sauvegardes : la base est copiée à chaud une fois par jour et juste avant chaque migration, dans `data/backups/`
+(`BACKUP_DIR` pour changer de dossier). Les 7 dernières de chaque sorte sont gardées (`BACKUP_KEEP`, 0 pour
+désactiver). Pour restaurer : arrêter le bot, remplacer `data/bot.sqlite` par la copie choisie, supprimer
+`bot.sqlite-wal` et `bot.sqlite-shm`, puis redémarrer. Ces copies restent sur la même machine : pour survivre à la
+perte de la VM, les copier ailleurs de temps en temps (`scp`).
+
 Logs : `LOG_FORMAT=json` écrit une ligne JSON par événement (filtrable avec `jq`), `text` (défaut) reste lisible.
 
 ## Architecture
@@ -96,5 +102,6 @@ src/
 | `npm run dev` | Lance le bot avec rechargement |
 | `npm test` | Tests (Vitest) |
 | `npm run typecheck` | Vérification TypeScript |
-| `npm run migrate` | Applique les migrations sans lancer le bot |
+| `npm run migrate` | Applique les migrations sans lancer le bot (après une sauvegarde) |
+| `npm run backup` | Sauvegarde manuelle de la base, utilisable bot allumé |
 | `npm run deploy:commands` | Enregistre les slash commands |

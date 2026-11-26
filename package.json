@@ -15,6 +15,7 @@
     "deploy:commands": "tsx src/scripts/deployCommands.ts",
     "clear:commands": "tsx src/scripts/clearCommands.ts",
     "migrate": "tsx src/scripts/migrate.ts",
+    "backup": "tsx src/scripts/backup.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"

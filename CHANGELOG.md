@@ -1,5 +1,21 @@
 # Journal des modifications
 
+## Sauvegardes automatiques de la base
+
+- **Chaque jour** : copie à chaud de la base (API de sauvegarde de SQLite), sans arrêter le bot. La vérification se
+  fait toutes les heures : une sauvegarde manquée pendant un arrêt est rattrapée au démarrage.
+- **Avant chaque migration** (`pre-vN`), au démarrage du bot comme avec `npm run migrate`. Si cette sauvegarde
+  échoue, la migration n'est pas appliquée. Une base vierge n'est pas sauvegardée.
+- **`npm run backup`** : sauvegarde manuelle (`manual`), utilisable bot allumé.
+- **Vérification** : chaque copie est vérifiée (`quick_check`), écrite sous un nom temporaire puis renommée. Elle est
+  autonome : un seul fichier, sans `-wal`.
+- **Rotation** : les 7 dernières de chaque sorte sont gardées dans `data/backups/`. Réglable avec `BACKUP_DIR` et
+  `BACKUP_KEEP` (0 désactive les sauvegardes).
+- **Restauration** : voir le README.
+- **Tests** : 183 au total, dont 7 nouveaux (noms, rotation, copie, planification, sauvegarde avant migration).
+- **Corrigé** : `cryptoRng` levait `ERR_OUT_OF_RANGE` (`randomInt` refuse un écart de 2⁴⁸), ce qui faisait planter le
+  démarrage.
+
 ## Niveaux, `/top` et regroupement des commandes
 
 ### 🗂️ Commandes regroupées (31 → 18)
