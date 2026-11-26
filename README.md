@@ -4,7 +4,7 @@ Bot Discord modulaire en TypeScript (discord.js v14, SQLite) : jeux, économie e
 
 ## Fonctionnalités
 
-Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine.
+Les commandes sont regroupées par thème : 21 commandes au lieu d'une trentaine.
 
 | Commande | Sous-commandes |
 |---|---|
@@ -17,10 +17,11 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
 | **Modération** | `/warn` `/timeout` `/untimeout` `/kick` `/ban` `/unban` `/purge` |
 | `/sanctions` | `voir` · `revoquer` |
 | `/note` | `ajouter` · `voir` · `supprimer` |
+| `/ticket` | `panneau` · `ajouter` · `retirer` · `fermer` |
 | `/anniversaire` | `definir` · `supprimer` · `voir` · `prochains` |
 | `/salon` | `verrouiller` · `deverrouiller` · `mode-lent` |
 | `/admin` | `solde …` · `boutique ajouter|role|retirer` · `xp …` · `export` (« Gérer le serveur ») |
-| `/config` | tableau de bord : économie, rôles et braquage, loterie et saisons, modération, automod, niveaux, rôles de niveau, anniversaires |
+| `/config` | tableau de bord : économie, rôles et braquage, loterie et saisons, modération, automod, tickets, niveaux, rôles de niveau, anniversaires |
 | `/info` | version, latence, uptime |
 
 - **La Taupe** : tous les agents connaissent un mot secret sauf la taupe, qui doit se fondre dans la masse. Les gagnants
@@ -71,6 +72,10 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
   du bot (cache mémoire, rien n'est stocké en base).
 - **Notes** : `/note ajouter|voir|supprimer`, notes internes sur un membre, visibles des modérateurs seulement et
   sans effet sur les avertissements. `/sanctions voir` signale leur présence.
+- **Tickets** : `/ticket panneau` publie un bouton « Ouvrir un ticket ». Après un court formulaire (sujet), le membre
+  obtient un salon privé avec le rôle du staff ; un ticket ouvert à la fois. Boutons « Prendre en charge » et
+  « Fermer » ; `/ticket ajouter|retirer` pour inviter quelqu'un. À la fermeture, la transcription est archivée dans
+  un salon du staff et envoyée en MP au membre, puis le salon est supprimé. `/config` → Tickets.
 - `/admin export` fournit le journal des opérations en CSV.
 
 ## Installation

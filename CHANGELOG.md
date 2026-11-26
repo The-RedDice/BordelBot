@@ -1,5 +1,26 @@
 # Journal des modifications
 
+## Tickets d'assistance
+
+- **`/ticket panneau [salon] [texte]`** (« Gérer le serveur ») : publie un message avec un bouton **📩 Ouvrir un
+  ticket**.
+- **Ouverture** : un formulaire demande le sujet, puis le bot crée un **salon privé** (`ticket-42-pseudo`) visible
+  par le membre, le rôle du staff et le bot seulement, avec un message d'accueil qui mentionne le membre et le staff.
+  **Un ticket ouvert à la fois** par membre (garanti en base, double clic compris).
+- **Dans le ticket** : bouton **🙋 Prendre en charge** (staff), bouton **🔒 Fermer** (le membre ou le staff, avec une
+  raison facultative), `/ticket ajouter|retirer membre` (staff), `/ticket fermer [raison]`.
+- **Fermeture** : transcription `.txt` (jusqu'à 1 000 messages) **archivée** dans le salon choisi avec un résumé, et
+  **envoyée en MP** au membre ; le salon est supprimé 10 s plus tard. Un salon supprimé à la main ferme le ticket.
+- **Staff** = le rôle choisi, ou toute personne qui peut gérer les salons.
+- **Après un redémarrage**, les boutons fonctionnent toujours (tickets en base).
+- **`/config` → 📩 Tickets** : catégorie des salons, rôle du staff, salon d'archive, message d'accueil.
+- **Technique** : module `tickets` (`TicketService`, `TicketDesk`). Migration 012 : `ticket_settings`, `tickets`.
+  294 tests, dont 7 nouveaux.
+
+**Déploiement** : `git pull && npm ci && npm run build && npm run deploy:commands && pm2 restart bordelbot`
+(`deploy:commands` pour `/ticket`). Le bot a besoin de « Gérer les salons » (et « Gérer les rôles » pour les
+permissions des salons), déjà demandées à l'invitation.
+
 ## Économie, lot 3 : dividendes de CRS
 
 - **🥐 CRS** (Croissant & Cie, l'actif stable) verse chaque jour **à midi (heure de Paris)** un dividende de **0,2 %**

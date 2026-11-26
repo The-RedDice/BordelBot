@@ -6,6 +6,7 @@ import { economyModule } from './economy/index.js';
 import { gamesModule } from './games/index.js';
 import { levelsModule } from './levels/index.js';
 import { moderationModule } from './moderation/index.js';
+import { ticketsModule } from './tickets/index.js';
 
 /**
  * Ordre d'initialisation : les consommateurs d'événements (économie) avant les
@@ -17,6 +18,7 @@ const featureModules: readonly BotModule[] = [
   levelsModule,
   birthdaysModule,
   moderationModule,
+  ticketsModule,
   gamesModule,
 ];
 

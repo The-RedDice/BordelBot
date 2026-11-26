@@ -10,6 +10,7 @@ import { gamesMigration } from './008_games.js';
 import { economyRolesHeistsMigration } from './009_economy_roles_heists.js';
 import { lotterySeasonsMigration } from './010_lottery_seasons.js';
 import { dividendsMigration } from './011_dividends.js';
+import { ticketsMigration } from './012_tickets.js';
 
 /** Ajouter chaque nouvelle migration ici, dans l'ordre. */
 export const migrations: readonly Migration[] = [
@@ -24,4 +25,5 @@ export const migrations: readonly Migration[] = [
   economyRolesHeistsMigration,
   lotterySeasonsMigration,
   dividendsMigration,
+  ticketsMigration,
 ];

@@ -7,10 +7,10 @@ describe('migrations', () => {
   it('applique le schéma puis est idempotent', () => {
     const db = openDatabase(':memory:');
     const first = runMigrations(db, migrations);
-    expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     const second = runMigrations(db, migrations);
     expect(second.applied).toEqual([]);
-    expect(second.currentVersion).toBe(11);
+    expect(second.currentVersion).toBe(12);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
@@ -48,6 +48,8 @@ describe('migrations', () => {
       'season_results',
       'season_stats',
       'shop_items',
+      'ticket_settings',
+      'tickets',
       'user_stats',
       'wager_entries',
       'wagers',
