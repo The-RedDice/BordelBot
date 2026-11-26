@@ -15,6 +15,18 @@ export interface AppConfig {
   readonly backupKeep: number;
   readonly logLevel: LogLevel;
   readonly logFormat: LogFormat;
+  /** Tableau de bord web ; null s'il n'est pas configuré (le bot tourne sans). */
+  readonly dashboard: DashboardConfig | null;
+}
+
+export interface DashboardConfig {
+  /** Adresse d'écoute : 127.0.0.1 par défaut (le tunnel Cloudflare s'y connecte en local). */
+  readonly host: string;
+  readonly port: number;
+  /** URL publique, sans / final (ex. https://bot.exemple.fr) : sert à la redirection OAuth. */
+  readonly publicUrl: string;
+  /** Secret OAuth2 de l'application (Developer Portal > OAuth2). */
+  readonly clientSecret: string;
 }
 
 const LOG_LEVELS: readonly LogLevel[] = ['debug', 'info', 'warn', 'error'];
@@ -58,6 +70,36 @@ function databaseConfig() {
   };
 }
 
+/**
+ * Le tableau de bord démarre seulement si DASHBOARD_PORT, DASHBOARD_URL et
+ * DISCORD_CLIENT_SECRET sont tous renseignés ; une config incomplète est une erreur.
+ */
+function dashboardConfig(): DashboardConfig | null {
+  const port = optional('DASHBOARD_PORT');
+  const url = optional('DASHBOARD_URL');
+  const secret = optional('DISCORD_CLIENT_SECRET');
+  if (!port && !url && !secret) return null;
+  if (!port || !url || !secret) {
+    throw new Error('Tableau de bord : DASHBOARD_PORT, DASHBOARD_URL et DISCORD_CLIENT_SECRET vont ensemble (ou aucun des trois)');
+  }
+  if (!/^\d{2,5}$/.test(port) || Number(port) > 65_535) throw new Error(`DASHBOARD_PORT invalide : "${port}"`);
+  let publicUrl: URL;
+  try {
+    publicUrl = new URL(url);
+  } catch {
+    throw new Error(`DASHBOARD_URL invalide : "${url}"`);
+  }
+  if (publicUrl.protocol !== 'https:' && publicUrl.hostname !== 'localhost' && publicUrl.hostname !== '127.0.0.1') {
+    throw new Error('DASHBOARD_URL doit être en https (seul localhost est permis en http)');
+  }
+  return {
+    host: optional('DASHBOARD_HOST') ?? '127.0.0.1',
+    port: Number(port),
+    publicUrl: publicUrl.origin,
+    clientSecret: secret,
+  };
+}
+
 /** Config complète, nécessaire pour se connecter à Discord. */
 export function loadConfig(): AppConfig {
   return {
@@ -67,6 +109,7 @@ export function loadConfig(): AppConfig {
     ...databaseConfig(),
     logLevel: parseLogLevel(optional('LOG_LEVEL')),
     logFormat: parseLogFormat(optional('LOG_FORMAT')),
+    dashboard: dashboardConfig(),
   };
 }
 

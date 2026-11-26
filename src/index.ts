@@ -11,6 +11,7 @@ import type { BotEvents } from './core/events.js';
 import type { BotJobs } from './core/jobs.js';
 import { JobScheduler } from './core/scheduler/JobScheduler.js';
 import { createInteractionRouter } from './core/interactionRouter.js';
+import { startDashboard, type RunningDashboard } from './dashboard/index.js';
 import { createLogger } from './core/logger.js';
 import { modules } from './modules/index.js';
 
@@ -38,6 +39,9 @@ async function main(): Promise<void> {
     logger.debug(`Module initialisé : ${mod.name}`);
   }
 
+  let dashboard: RunningDashboard | undefined;
+  if (!config.dashboard) logger.info('Tableau de bord désactivé (DASHBOARD_PORT, DASHBOARD_URL et DISCORD_CLIENT_SECRET non renseignés)');
+
   const client = createDiscordClient(
     modules.flatMap((m) => m.intents ?? []),
     modules.flatMap((m) => m.partials ?? []),
@@ -53,6 +57,14 @@ async function main(): Promise<void> {
     }
     // Après les `ready` : les gestionnaires peuvent compter sur des modules prêts.
     scheduler.start(c);
+    if (config.dashboard && !dashboard) {
+      try {
+        dashboard = await startDashboard(config.dashboard, config.discordClientId, db, c, logger.child('dashboard'));
+      } catch (err) {
+        // Le bot continue sans tableau de bord (port déjà pris, par exemple).
+        logger.error('Impossible de démarrer le tableau de bord', err);
+      }
+    }
   });
   client.on(Events.InteractionCreate, createInteractionRouter(registry, ctx));
   client.on(Events.Error, (err) => logger.error('Erreur du client Discord', err));
@@ -62,7 +74,8 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info(`${signal} reçu, arrêt en cours…`);
-    // Avant les modules : aucune tâche ne doit s'exécuter sur un module déjà libéré.
+    // Avant les modules : aucune tâche ni page ne doit s'exécuter sur un module déjà libéré.
+    await dashboard?.close();
     await scheduler.stop();
     for (const mod of [...modules].reverse()) {
       try {

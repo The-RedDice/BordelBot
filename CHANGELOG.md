@@ -1,5 +1,26 @@
 # Journal des modifications
 
+## Tableau de bord web, partie 1 : serveur, connexion Discord, API
+
+L'interface (pages) arrive dans la partie 2 ; cette partie pose tout ce qu'il y a dessous.
+
+- **Facultatif** : il ne démarre que si `DASHBOARD_PORT`, `DASHBOARD_URL` et `DISCORD_CLIENT_SECRET` sont renseignés
+  (les trois ensemble). Sinon le bot tourne exactement comme avant. Un port déjà pris n'empêche pas le bot de démarrer.
+- **Dans le processus du bot**, `node:http` sans dépendance, à l'écoute sur `127.0.0.1` (le tunnel Cloudflare s'y
+  connecte en local). **Lecture seule** : aucune route ne modifie l'économie ni Discord.
+- **Connexion Discord (OAuth2)** : scope `identify` seulement, état anti-falsification, jeton d'accès utilisé une fois
+  puis oublié. Session de 7 jours en cookie `HttpOnly`/`SameSite=Lax` (`Secure` en HTTPS) ; seule l'empreinte SHA-256
+  du jeton est en base.
+- **Accès** : on ne voit que les serveurs dont on est membre (vérifié par le bot) ; sinon 404, sans révéler si le bot
+  y est présent. La bourse, sans donnée personnelle, est publique.
+- **API** : `/api/me` (mes serveurs), `/api/market` et `/api/market/:actif?periode=1h|24h|7j|30j`,
+  `/api/guilds/:id` : statistiques (masse monétaire, moyenne, médiane, part des 10 % les plus riches, valeur
+  investie en bourse, création monétaire et opérations sur 7 jours), classements (fortune, saison, victoires,
+  niveaux), podiums des saisons passées, loterie, activité (parties, mises, braquages, mot du jour, tickets).
+- **Sécurité** : CSP stricte (aucun script extérieur), `X-Frame-Options: DENY`, `nosniff`.
+- **Technique** : `src/dashboard/` (`auth`, `data`, `directory`, `server`), migration 013 (`dashboard_sessions`).
+  308 tests, dont 14 nouveaux (dont un vrai serveur HTTP interrogé de bout en bout avec un faux Discord).
+
 ## Tickets d'assistance
 
 - **`/ticket panneau [salon] [texte]`** (« Gérer le serveur ») : publie un message avec un bouton **📩 Ouvrir un
