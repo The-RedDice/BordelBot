@@ -23,6 +23,13 @@ export interface BotEvents {
     readonly newBalance: number;
     readonly reason: string;
   };
+  /** Anniversaire fêté (une fois par membre et par an) ; l'économie verse `bonus` s'il est positif. */
+  'birthday:celebrated': {
+    readonly guildId: string;
+    readonly userId: string;
+    readonly year: number;
+    readonly bonus: number;
+  };
   'moderation:caseCreated': {
     readonly caseId: number;
     readonly guildId: string;

@@ -4,7 +4,7 @@ Bot Discord modulaire en TypeScript (discord.js v14, SQLite) : jeux, économie e
 
 ## Fonctionnalités
 
-Les commandes sont regroupées par thème : 19 commandes au lieu d'une trentaine.
+Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine.
 
 | Commande | Sous-commandes |
 |---|---|
@@ -17,9 +17,10 @@ Les commandes sont regroupées par thème : 19 commandes au lieu d'une trentaine
 | **Modération** | `/warn` `/timeout` `/untimeout` `/kick` `/ban` `/unban` `/purge` |
 | `/sanctions` | `voir` · `revoquer` |
 | `/note` | `ajouter` · `voir` · `supprimer` |
+| `/anniversaire` | `definir` · `supprimer` · `voir` · `prochains` |
 | `/salon` | `verrouiller` · `deverrouiller` · `mode-lent` |
 | `/admin` | `solde …` · `boutique …` · `xp …` · `export` (« Gérer le serveur ») |
-| `/config` | tableau de bord : économie, modération, automod, niveaux, rôles de niveau |
+| `/config` | tableau de bord : économie, modération, automod, niveaux, rôles de niveau, anniversaires |
 | `/info` | version, latence, uptime |
 
 - **La Taupe** : tous les agents connaissent un mot secret sauf la taupe, qui doit se fondre dans la masse. Les gagnants
@@ -27,6 +28,9 @@ Les commandes sont regroupées par thème : 19 commandes au lieu d'une trentaine
 - **Niveaux** : de l'XP en discutant (15 à 25 XP, une fois par minute au plus) et en vocal (5 XP par minute, à deux
   minimum, hors AFK et sourdine casque). Montées de niveau annoncées dans le salon du message, dans un salon dédié ou
   pas du tout. **Rôles de niveau** attribués automatiquement, cumulés ou non. Tout se règle dans `/config`.
+- **Anniversaires** : chaque membre enregistre sa date (sans l'année). Le jour J, à l'heure choisie (fuseau
+  réglable, Europe/Paris par défaut), le bot le souhaite dans un salon, lui donne un rôle pour la journée et lui
+  offre un bonus, une fois par an au plus. Un 29 février est fêté le 28 les autres années. `/config` → Anniversaires.
 - **Succès** : 11 succès (victoires, séries de daily, jackpot, duels, bourse…) versent une récompense au déblocage.
 - **Jeux d'argent** : pile ou face (quitte ou double), machine à sous (≈ 95 % redistribués), duels entre membres.
   Mise maximale réglable dans `/config` (0 = désactivés).

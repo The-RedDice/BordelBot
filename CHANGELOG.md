@@ -1,5 +1,27 @@
 # Journal des modifications
 
+## Anniversaires
+
+- **`/anniversaire definir|supprimer|voir|prochains`** : chaque membre enregistre sa date, sans l'année. Les réponses
+  personnelles sont privées, `prochains` liste les 10 prochains anniversaires du serveur.
+- **Le jour J**, à l'heure choisie dans le fuseau du serveur (Europe/Paris par défaut) :
+  - une annonce dans le salon choisi, qui regroupe tous les anniversaires du jour ;
+  - un rôle porté pour la journée, retiré le lendemain ;
+  - un bonus en monnaie, versé par l'économie (nouveau type d'opération « 🎂 Anniversaire » dans l'historique).
+- **Une fois par an au plus** : changer sa date après avoir été fêté ne redonne ni bonus ni annonce.
+- **29 février** : fêté le 28 les années non bissextiles.
+- **Fiable** : tâche planifiée toutes les heures (premier usage du planificateur). Un arrêt du bot est rattrapé au
+  redémarrage, sans double annonce.
+- **`/config` → 🎂 Anniversaires** : salon, rôle du jour (vérifié : le bot doit pouvoir l'attribuer), bonus, heure,
+  fuseau. Rien n'est fêté tant qu'aucun des trois (salon, rôle, bonus) n'est réglé.
+- **Technique** : module `birthdays`, événement `birthday:celebrated`, tâche `birthdays:tick`. Migration 007 :
+  tables `birthdays`, `birthday_settings`, `birthday_celebrations` ; journal économique reconstruit pour le type
+  `birthday`, avec un index unique (un bonus par membre et par an).
+- **Tests** : 226 au total, dont 16 nouveaux.
+
+**Déploiement** : `git pull && npm ci && npm run build && npm run deploy:commands && pm2 restart bordelbot`
+(`deploy:commands` pour `/anniversaire`). Si un rôle du jour est choisi, le rôle du bot doit être au-dessus.
+
 ## Logs de messages, notes de modération et automod
 
 ### 🤖 Automod (complète l'AutoMod de Discord)

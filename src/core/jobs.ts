@@ -5,7 +5,8 @@
  *
  * Le contenu est stocké en JSON : uniquement des données sérialisables
  * (chaînes, nombres, booléens, tableaux, objets simples ; pas de Date ni de Map).
- *
- * Exemple : `'reminder': { readonly userId: string; readonly channelId: string; readonly text: string };`
  */
-export interface BotJobs {}
+export interface BotJobs {
+  /** Toutes les heures : annonces d'anniversaire dues et retrait des rôles de la veille. */
+  'birthdays:tick': Record<string, never>;
+}

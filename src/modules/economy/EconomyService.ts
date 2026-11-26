@@ -47,7 +47,8 @@ export type TransactionKind =
   | 'duel'
   | 'market_buy'
   | 'market_sell'
-  | 'achievement';
+  | 'achievement'
+  | 'birthday';
 
 export interface Transaction {
   readonly id: number;
@@ -212,6 +213,12 @@ function prepareStatements(db: Db) {
       .prepare<[string, string, string], number>(
         `SELECT 1 FROM economy_transactions
          WHERE guild_id = ? AND user_id = ? AND kind = 'game_reward' AND reference = ?`,
+      )
+      .pluck(),
+    hasBirthdayBonus: db
+      .prepare<[string, string, string], number>(
+        `SELECT 1 FROM economy_transactions
+         WHERE guild_id = ? AND user_id = ? AND kind = 'birthday' AND reference = ?`,
       )
       .pluck(),
     leaderboard: db.prepare<[string, number], { userId: string; balance: number }>(
@@ -468,6 +475,22 @@ export class EconomyService {
         }
       }
       return { amountPerWinner: amount, credited, skipped };
+    });
+  }
+
+  // ----- Anniversaires -----
+
+  /**
+   * Bonus d'anniversaire. Idempotent : un seul par membre et par an
+   * (vérification + index unique uq_tx_birthday). Renvoie false s'il était déjà versé.
+   */
+  rewardBirthday(guildId: string, userId: string, year: number, amount: number): EcoResult<boolean> {
+    return this.run(() => {
+      if (!Number.isSafeInteger(amount) || amount <= 0) return false;
+      const reference = String(year);
+      if (this.stmts.hasBirthdayBonus.get(guildId, userId, reference) !== undefined) return false;
+      this.applyDelta({ guildId, userId, delta: amount, kind: 'birthday', reference });
+      return true;
     });
   }
 

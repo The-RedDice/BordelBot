@@ -110,7 +110,13 @@ export const economyModule: BotModule = {
     market.advance();
     scheduleMarket(market, log);
 
-    unsubscribe = ctx.bus.on('game:finished', async (event) => {
+    const offBirthday = ctx.bus.on('birthday:celebrated', (event) => {
+      if (event.bonus <= 0) return;
+      const r = eco.rewardBirthday(event.guildId, event.userId, event.year, event.bonus);
+      if (!r.ok) log.warn(`Bonus d'anniversaire non versé à ${event.userId} sur ${event.guildId}`, r.error);
+    });
+
+    const offGame = ctx.bus.on('game:finished', async (event) => {
       const r = eco.rewardGame(event);
       if (!r.ok) log.warn(`Récompense non versée pour la partie ${event.sessionId}`, r.error);
       else if (r.value.credited.length > 0) {
@@ -133,6 +139,10 @@ export const economyModule: BotModule = {
       }
       await announceUnlocks(event.channelId, event.guildId, unlocked);
     });
+    unsubscribe = () => {
+      offBirthday();
+      offGame();
+    };
   },
   ready(c) {
     client = c;
