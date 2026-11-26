@@ -1,6 +1,5 @@
 import {
-  InteractionContextType,
-  SlashCommandBuilder,
+  SlashCommandSubcommandBuilder,
   type ChatInputCommandInteraction,
   type User,
 } from 'discord.js';
@@ -28,5 +27,6 @@ export async function rejectBot(interaction: GuildCommand, user: User): Promise<
   return true;
 }
 
-export const guildCommand = (name: string, description: string) =>
-  new SlashCommandBuilder().setName(name).setDescription(description).setContexts(InteractionContextType.Guild);
+/** Sous-commande d'une commande parente (`/eco solde`, `/jeu duel`…) ; les parentes sont réservées aux serveurs. */
+export const subcommand = (name: string, description: string) =>
+  new SlashCommandSubcommandBuilder().setName(name).setDescription(description);

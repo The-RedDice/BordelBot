@@ -9,14 +9,14 @@ import {
   type ModalSubmitInteraction,
   type SlashCommandIntegerOption,
 } from 'discord.js';
-import type { ComponentHandler, SlashCommand } from '../../../core/commands/types.js';
+import type { ComponentHandler, Subcommand } from '../../../core/commands/types.js';
 import type { Logger } from '../../../core/logger.js';
 import { replyEphemeral } from '../../../core/replies.js';
 import { formatAmount, MAX_AMOUNT } from '../EconomyService.js';
 import { COIN_MULTIPLIER, type CoinSide } from '../gambling/games.js';
 import type { GetServices } from '../services.js';
 import { achievementLines, errorText } from './format.js';
-import { guildCommand, guildOnly } from './helpers.js';
+import { guildOnly, subcommand } from './helpers.js';
 
 export const DUEL_PREFIX = 'duel';
 /** Délai pour accepter un défi. */
@@ -156,9 +156,10 @@ export class DuelManager {
 export function createGamblingCommands(
   getServices: GetServices,
   getDuels: () => DuelManager,
-): { commands: SlashCommand[]; components: ComponentHandler[] } {
-  const pileOuFace: SlashCommand = {
-    data: guildCommand('pile-ou-face', `Quitte ou double : mise sur pile ou face (gain ×${COIN_MULTIPLIER})`)
+): { subcommands: Subcommand[]; components: ComponentHandler[] } {
+  const pileOuFace: Subcommand = {
+    parent: 'jeu',
+    data: subcommand('pile-ou-face', `Quitte ou double : mise sur pile ou face (gain ×${COIN_MULTIPLIER})`)
       .addIntegerOption(stakeOption)
       .addStringOption((o) =>
         o
@@ -185,8 +186,9 @@ export function createGamblingCommands(
     }, getServices),
   };
 
-  const slots: SlashCommand = {
-    data: guildCommand('machine-a-sous', 'Tente le jackpot (💎💎💎 = ×200)').addIntegerOption(stakeOption),
+  const slots: Subcommand = {
+    parent: 'jeu',
+    data: subcommand('machine-a-sous', 'Tente le jackpot (💎💎💎 = ×200)').addIntegerOption(stakeOption),
     execute: guildOnly(async (i, { gambling, eco }) => {
       const r = gambling.slots(i.guildId, i.user.id, i.options.getInteger('mise', true));
       if (!r.ok) return replyEphemeral(i, errorText(r.error));
@@ -207,8 +209,9 @@ export function createGamblingCommands(
     }, getServices),
   };
 
-  const duel: SlashCommand = {
-    data: guildCommand('duel', 'Défie un membre à pile ou face : le gagnant prend la mise de l’autre')
+  const duel: Subcommand = {
+    parent: 'jeu',
+    data: subcommand('duel', 'Défie un membre à pile ou face : le gagnant prend la mise de l’autre')
       .addUserOption((o) => o.setName('membre').setDescription('Adversaire').setRequired(true))
       .addIntegerOption(stakeOption),
     execute: guildOnly((i) => getDuels().challenge(i), getServices),
@@ -219,5 +222,5 @@ export function createGamblingCommands(
     handle: (interaction) => getDuels().handle(interaction),
   };
 
-  return { commands: [pileOuFace, slots, duel], components: [duelButtons] };
+  return { subcommands: [pileOuFace, slots, duel], components: [duelButtons] };
 }

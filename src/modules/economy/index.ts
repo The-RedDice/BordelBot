@@ -1,13 +1,14 @@
 import type { Client } from 'discord.js';
 import type { BotModule } from '../../core/commands/types.js';
 import type { Logger } from '../../core/logger.js';
-import { createEconomyAdminCommand } from './discord/adminCommand.js';
+import { createEconomyAdminCommands } from './discord/adminCommand.js';
 import { createEconomyCommands } from './discord/commands.js';
 import { achievementLines } from './discord/format.js';
 import { createGamblingCommands, DuelManager } from './discord/gambling.js';
 import { createMarketCommand } from './discord/market.js';
 import { createProfileCommands } from './discord/profile.js';
 import { createEconomySettings } from './discord/settings.js';
+import { createEconomyTopCommands } from './discord/top.js';
 import { EconomyService } from './EconomyService.js';
 import { GamblingService } from './gambling/GamblingService.js';
 import { MARKET_TICK_MS, MarketService } from './market/MarketService.js';
@@ -87,12 +88,13 @@ const gambling = createGamblingCommands(getServices, getDuels);
 
 export const economyModule: BotModule = {
   name: 'economy',
-  commands: [
+  commands: [createMarketCommand(getServices)],
+  subcommands: [
     ...createEconomyCommands(getServices),
     ...createProfileCommands(getServices),
-    ...gambling.commands,
-    createMarketCommand(getServices),
-    createEconomyAdminCommand(getEconomyService),
+    ...gambling.subcommands,
+    ...createEconomyTopCommands(getServices),
+    ...createEconomyAdminCommands(getEconomyService),
   ],
   components: gambling.components,
   settings: [createEconomySettings(getEconomyService)],

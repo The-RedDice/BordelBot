@@ -1,97 +1,91 @@
 import {
   AttachmentBuilder,
-  InteractionContextType,
   MessageFlags,
   PermissionFlagsBits,
-  SlashCommandBuilder,
+  SlashCommandSubcommandBuilder,
+  SlashCommandSubcommandGroupBuilder,
   escapeMarkdown,
   type ChatInputCommandInteraction,
   type SlashCommandIntegerOption,
 } from 'discord.js';
-import type { SlashCommand } from '../../../core/commands/types.js';
+import type { Subcommand } from '../../../core/commands/types.js';
 import { replyEphemeral } from '../../../core/replies.js';
 import { transactionsCsv } from '../csv.js';
 import { formatAmount, MAX_AMOUNT, MAX_EXPORT_ROWS, type EconomyService } from '../EconomyService.js';
 import { errorText } from './format.js';
 
 /**
- * `/eco-admin` : réservé par défaut aux membres ayant « Gérer le serveur ».
- * Les admins du serveur peuvent ajuster cet accès dans Intégrations > Commandes.
+ * `/admin solde|boutique|export` : réservé par défaut aux membres ayant « Gérer le serveur »
+ * (permission de la parente `/admin`, vérifiée à nouveau à l'exécution).
  */
-export function createEconomyAdminCommand(getService: () => EconomyService): SlashCommand {
+export function createEconomyAdminCommands(getService: () => EconomyService): Subcommand[] {
   const amountOption = (min: number) => (o: SlashCommandIntegerOption) =>
     o.setName('montant').setDescription('Montant').setRequired(true).setMinValue(min).setMaxValue(MAX_AMOUNT);
 
-  const data = new SlashCommandBuilder()
-    .setName('eco-admin')
-    .setDescription('Administration de l’économie')
-    .setContexts(InteractionContextType.Guild)
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addSubcommandGroup((g) =>
-      g
-        .setName('solde')
-        .setDescription('Modifier le solde d’un membre')
-        .addSubcommand((s) =>
-          s
-            .setName('ajouter')
-            .setDescription('Ajoute de l’argent à un membre')
-            .addUserOption((o) => o.setName('membre').setDescription('Membre').setRequired(true))
-            .addIntegerOption(amountOption(1))
-            .addStringOption((o) => o.setName('raison').setDescription('Motif (visible dans son historique)').setMaxLength(200)),
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('retirer')
-            .setDescription('Retire de l’argent à un membre (sans passer sous zéro)')
-            .addUserOption((o) => o.setName('membre').setDescription('Membre').setRequired(true))
-            .addIntegerOption(amountOption(1))
-            .addStringOption((o) => o.setName('raison').setDescription('Motif (visible dans son historique)').setMaxLength(200)),
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('definir')
-            .setDescription('Fixe le solde exact d’un membre')
-            .addUserOption((o) => o.setName('membre').setDescription('Membre').setRequired(true))
-            .addIntegerOption(amountOption(0))
-            .addStringOption((o) => o.setName('raison').setDescription('Motif (visible dans son historique)').setMaxLength(200)),
-        ),
+  const solde = new SlashCommandSubcommandGroupBuilder()
+    .setName('solde')
+    .setDescription('Modifier le solde d’un membre')
+    .addSubcommand((s) =>
+      s
+        .setName('ajouter')
+        .setDescription('Ajoute de l’argent à un membre')
+        .addUserOption((o) => o.setName('membre').setDescription('Membre').setRequired(true))
+        .addIntegerOption(amountOption(1))
+        .addStringOption((o) => o.setName('raison').setDescription('Motif (visible dans son historique)').setMaxLength(200)),
     )
-    .addSubcommandGroup((g) =>
-      g
-        .setName('boutique')
-        .setDescription('Gérer les articles en vente')
-        .addSubcommand((s) =>
-          s
-            .setName('ajouter')
-            .setDescription('Crée un article, ou modifie celui qui a la même clé')
-            .addStringOption((o) =>
-              o.setName('cle').setDescription('Identifiant : minuscules, chiffres, tirets').setRequired(true).setMaxLength(32),
-            )
-            .addStringOption((o) => o.setName('nom').setDescription('Nom affiché').setRequired(true).setMaxLength(64))
-            .addIntegerOption((o) =>
-              o.setName('prix').setDescription('Prix').setRequired(true).setMinValue(0).setMaxValue(MAX_AMOUNT),
-            )
-            .addStringOption((o) => o.setName('description').setDescription('Description').setMaxLength(200))
-            .addBooleanOption((o) =>
-              o.setName('cumulable').setDescription('Peut-on en posséder plusieurs ? (oui par défaut)'),
-            ),
+    .addSubcommand((s) =>
+      s
+        .setName('retirer')
+        .setDescription('Retire de l’argent à un membre (sans passer sous zéro)')
+        .addUserOption((o) => o.setName('membre').setDescription('Membre').setRequired(true))
+        .addIntegerOption(amountOption(1))
+        .addStringOption((o) => o.setName('raison').setDescription('Motif (visible dans son historique)').setMaxLength(200)),
+    )
+    .addSubcommand((s) =>
+      s
+        .setName('definir')
+        .setDescription('Fixe le solde exact d’un membre')
+        .addUserOption((o) => o.setName('membre').setDescription('Membre').setRequired(true))
+        .addIntegerOption(amountOption(0))
+        .addStringOption((o) => o.setName('raison').setDescription('Motif (visible dans son historique)').setMaxLength(200)),
+    );
+
+  const boutique = new SlashCommandSubcommandGroupBuilder()
+    .setName('boutique')
+    .setDescription('Gérer les articles en vente')
+    .addSubcommand((s) =>
+      s
+        .setName('ajouter')
+        .setDescription('Crée un article, ou modifie celui qui a la même clé')
+        .addStringOption((o) =>
+          o.setName('cle').setDescription('Identifiant : minuscules, chiffres, tirets').setRequired(true).setMaxLength(32),
         )
-        .addSubcommand((s) =>
-          s
-            .setName('retirer')
-            .setDescription('Retire un article de la vente (les inventaires sont conservés)')
-            .addStringOption((o) => o.setName('cle').setDescription('Clé de l’article').setRequired(true).setMaxLength(32)),
+        .addStringOption((o) => o.setName('nom').setDescription('Nom affiché').setRequired(true).setMaxLength(64))
+        .addIntegerOption((o) =>
+          o.setName('prix').setDescription('Prix').setRequired(true).setMinValue(0).setMaxValue(MAX_AMOUNT),
+        )
+        .addStringOption((o) => o.setName('description').setDescription('Description').setMaxLength(200))
+        .addBooleanOption((o) =>
+          o.setName('cumulable').setDescription('Peut-on en posséder plusieurs ? (oui par défaut)'),
         ),
     )
     .addSubcommand((s) =>
       s
-        .setName('export')
-        .setDescription(`Exporte le journal des opérations en CSV (${MAX_EXPORT_ROWS} dernières au plus)`)
-        .addUserOption((o) => o.setName('membre').setDescription('Uniquement les opérations de ce membre')),
+        .setName('retirer')
+        .setDescription('Retire un article de la vente (les inventaires sont conservés)')
+        .addStringOption((o) => o.setName('cle').setDescription('Clé de l’article').setRequired(true).setMaxLength(32)),
     );
+
+  const exportData = new SlashCommandSubcommandBuilder()
+    .setName('export')
+    .setDescription(`Exporte le journal des opérations en CSV (${MAX_EXPORT_ROWS} dernières au plus)`)
+    .addUserOption((o) => o.setName('membre').setDescription('Uniquement les opérations de ce membre'));
 
   async function execute(i: ChatInputCommandInteraction): Promise<void> {
     if (!i.inGuild()) return replyEphemeral(i, 'Cette commande s’utilise sur un serveur.');
+    if (!i.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
+      return replyEphemeral(i, 'Il te faut la permission « Gérer le serveur ».');
+    }
     const eco = getService();
     const guildId = i.guildId;
     const group = i.options.getSubcommandGroup();
@@ -149,5 +143,9 @@ export function createEconomyAdminCommand(getService: () => EconomyService): Sla
     });
   }
 
-  return { data, execute };
+  return [
+    { parent: 'admin', data: solde, execute },
+    { parent: 'admin', data: boutique, execute },
+    { parent: 'admin', data: exportData, execute },
+  ];
 }

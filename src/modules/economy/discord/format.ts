@@ -38,7 +38,6 @@ export function errorText(error: EconomyError): string {
   return error.retryAt === undefined ? error.message : `${error.message} Prochaine récompense ${relativeTime(error.retryAt)}.`;
 }
 
-export const MEDALS = ['🥇', '🥈', '🥉'] as const;
 
 /** Lignes « succès débloqué » à ajouter à une réponse. `who` : mention, pour un message public à plusieurs. */
 export function achievementLines(

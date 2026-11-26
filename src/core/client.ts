@@ -7,10 +7,11 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js';
  * GuildMembers (privilégié) n'est pas nécessaire : les options `user` des
  * interactions fournissent déjà le membre résolu. À activer dans le Developer
  * Portal puis ici seulement si un module en a besoin.
+ * Les modules ajoutent leurs propres intents via `BotModule.intents`.
  */
-export function createDiscordClient(): Client {
+export function createDiscordClient(extraIntents: readonly GatewayIntentBits[] = []): Client {
   return new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildModeration],
+    intents: [...new Set([GatewayIntentBits.Guilds, GatewayIntentBits.GuildModeration, ...extraIntents])],
     partials: [Partials.GuildMember, Partials.User],
     allowedMentions: { parse: ['users'], repliedUser: false },
   });

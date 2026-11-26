@@ -3,13 +3,14 @@ import { coreModule } from '../core/coreModule.js';
 import { createConfigModule } from '../core/settings/configModule.js';
 import { economyModule } from './economy/index.js';
 import { gamesModule } from './games/index.js';
+import { levelsModule } from './levels/index.js';
 import { moderationModule } from './moderation/index.js';
 
 /**
  * Ordre d'initialisation : les consommateurs d'événements (économie) avant les
  * producteurs (jeux), pour qu'aucun événement ne soit émis sans abonné.
  */
-const featureModules: readonly BotModule[] = [coreModule, economyModule, moderationModule, gamesModule];
+const featureModules: readonly BotModule[] = [coreModule, economyModule, levelsModule, moderationModule, gamesModule];
 
 /** `/config` affiche les sections de réglages déclarées par les autres modules. */
 export const modules: readonly BotModule[] = [...featureModules, createConfigModule(() => featureModules)];

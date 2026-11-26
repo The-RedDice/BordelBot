@@ -172,8 +172,12 @@ describe('/config', () => {
     const { modules } = await import('../src/modules/index.js');
     const registry = new CommandRegistry(modules);
     const names = registry.allCommands().map((c) => c.data.name);
-    expect(names).toEqual(expect.arrayContaining(['config', 'bourse', 'profil', 'succes', 'duel', 'lock', 'slowmode']));
-    expect(names).not.toContain('modlogs');
+    expect(names).toEqual(
+      expect.arrayContaining(['config', 'info', 'bourse', 'jeu', 'eco', 'boutique', 'profil', 'top', 'admin', 'sanctions', 'salon']),
+    );
+    for (const old of ['modlogs', 'ping', 'eco-admin', 'classement', 'succes', 'duel', 'taupe', 'lock', 'slowmode', 'delwarn']) {
+      expect(names).not.toContain(old);
+    }
     expect(names.length).toBeLessThanOrEqual(100);
     // Chaque définition est acceptée par l'API (validation des builders).
     for (const c of registry.allCommands()) expect(() => c.data.toJSON()).not.toThrow();

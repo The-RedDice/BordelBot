@@ -5,7 +5,7 @@ import {
   RESTJSONErrorCodes,
   type Message,
 } from 'discord.js';
-import type { SlashCommand } from '../../../core/commands/types.js';
+import type { SlashCommand, Subcommand } from '../../../core/commands/types.js';
 import { relativeTime, replyEphemeral } from '../../../core/replies.js';
 import { formatDuration, MAX_TEMPBAN_MS, MAX_TIMEOUT_MS, parseDuration } from '../duration.js';
 import { HIERARCHY_MESSAGES } from '../policy.js';
@@ -18,6 +18,7 @@ import {
   confirm,
   dmLine,
   guard,
+  sub,
   isApiError,
   notify,
   postModLog,
@@ -31,7 +32,7 @@ import { auditReason, caseLine, sanctionDm } from './render.js';
 
 // ---------- Commandes ----------
 
-export function createModerationCommands(deps: Deps): SlashCommand[] {
+export function createModerationCommands(deps: Deps): { commands: SlashCommand[]; subcommands: Subcommand[] } {
   const service = () => deps.getService();
 
   const warn: SlashCommand = {
@@ -310,8 +311,9 @@ export function createModerationCommands(deps: Deps): SlashCommand[] {
     },
   };
 
-  const sanctions: SlashCommand = {
-    data: base('sanctions', 'Historique des sanctions d’un utilisateur', PermissionFlagsBits.ModerateMembers)
+  const sanctions: Subcommand = {
+    parent: 'sanctions',
+    data: sub('voir', 'Historique des sanctions d’un utilisateur')
       .addUserOption((o) => o.setName('utilisateur').setDescription('Utilisateur').setRequired(true))
       .addBooleanOption((o) => o.setName('revoquees').setDescription('Inclure les avertissements révoqués')),
     async execute(raw) {
@@ -339,8 +341,9 @@ export function createModerationCommands(deps: Deps): SlashCommand[] {
     },
   };
 
-  const delwarn: SlashCommand = {
-    data: base('delwarn', 'Révoque un avertissement (il reste visible dans le journal)', PermissionFlagsBits.ModerateMembers)
+  const delwarn: Subcommand = {
+    parent: 'sanctions',
+    data: sub('revoquer', 'Révoque un avertissement (il reste visible dans le journal)')
       .addIntegerOption((o) => o.setName('cas').setDescription('Numéro du cas').setRequired(true).setMinValue(1))
       .addStringOption(reasonOption(false)),
     async execute(raw) {
@@ -352,5 +355,8 @@ export function createModerationCommands(deps: Deps): SlashCommand[] {
     },
   };
 
-  return [warn, timeout, untimeout, kick, ban, unban, purge, sanctions, delwarn, ...createChannelCommands(deps)];
+  return {
+    commands: [warn, timeout, untimeout, kick, ban, unban, purge],
+    subcommands: [sanctions, delwarn, ...createChannelCommands(deps)],
+  };
 }

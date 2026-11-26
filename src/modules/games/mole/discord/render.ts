@@ -255,7 +255,7 @@ export function renderInterrupted(): BoardMessage {
       new EmbedBuilder()
         .setTitle('🕵️ La Taupe')
         .setColor(COLORS.neutral)
-        .setDescription('Partie interrompue : le bot a redémarré. Relancez une partie avec `/taupe`.'),
+        .setDescription('Partie interrompue : le bot a redémarré. Relancez une partie avec `/jeu taupe`.'),
     ],
     components: [],
   };

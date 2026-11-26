@@ -25,7 +25,7 @@ function getMoleAdapter(): MoleAdapter {
 
 export const gamesModule: BotModule = {
   name: 'games',
-  commands: [createMoleCommand(getMoleAdapter)],
+  subcommands: [createMoleCommand(getMoleAdapter)],
   components: [createMoleComponents(getMoleAdapter)],
   init(ctx) {
     service = new GameService(ctx);

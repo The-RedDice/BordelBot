@@ -19,19 +19,10 @@ const botVersion: string = (() => {
 
 const formatMb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} Mo`;
 
-/** Commandes transverses (diagnostic). */
+/** Commandes transverses (diagnostic). `/info` remplace l'ancien `/ping` (il affiche la latence). */
 export const coreModule: BotModule = {
   name: 'core',
   commands: [
-    {
-      data: new SlashCommandBuilder().setName('ping').setDescription('Vérifie que le bot répond'),
-      async execute(interaction) {
-        await interaction.reply({
-          content: `Pong ! Latence WebSocket : ${interaction.client.ws.ping} ms`,
-          flags: MessageFlags.Ephemeral,
-        });
-      },
-    },
     {
       data: new SlashCommandBuilder().setName('info').setDescription('Informations sur le bot : version, latence, etc.'),
       async execute(interaction, ctx) {

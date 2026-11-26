@@ -1,17 +1,18 @@
 import { EmbedBuilder } from 'discord.js';
-import type { SlashCommand } from '../../../core/commands/types.js';
+import type { Subcommand } from '../../../core/commands/types.js';
 import { formatAmount } from '../EconomyService.js';
 import { ACHIEVEMENTS } from '../progress/achievements.js';
 import type { GetServices } from '../services.js';
 import { ECONOMY_COLOR, signedAmount } from './format.js';
-import { guildCommand, guildOnly, rejectBot } from './helpers.js';
+import { guildOnly, rejectBot, subcommand } from './helpers.js';
 
 const percent = (n: number, total: number) => (total > 0 ? `${Math.round((n / total) * 100)} %` : '—');
 const int = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
 
-export function createProfileCommands(getServices: GetServices): SlashCommand[] {
-  const profil: SlashCommand = {
-    data: guildCommand('profil', 'Fortune, parties, jeux d’argent et succès d’un membre').addUserOption((o) =>
+export function createProfileCommands(getServices: GetServices): Subcommand[] {
+  const profil: Subcommand = {
+    parent: 'profil',
+    data: subcommand('general', 'Fortune, parties, jeux d’argent et succès d’un membre').addUserOption((o) =>
       o.setName('membre').setDescription('Membre à consulter'),
     ),
     execute: guildOnly(async (i, { eco, progress, market }) => {
@@ -84,8 +85,9 @@ export function createProfileCommands(getServices: GetServices): SlashCommand[] 
     }, getServices),
   };
 
-  const succes: SlashCommand = {
-    data: guildCommand('succes', 'Les succès débloqués et ceux qui restent à obtenir').addUserOption((o) =>
+  const succes: Subcommand = {
+    parent: 'profil',
+    data: subcommand('succes', 'Les succès débloqués et ceux qui restent à obtenir').addUserOption((o) =>
       o.setName('membre').setDescription('Membre à consulter'),
     ),
     execute: guildOnly(async (i, { eco, progress }) => {

@@ -1,5 +1,66 @@
 # Journal des modifications
 
+## Niveaux, `/top` et regroupement des commandes
+
+### 🗂️ Commandes regroupées (31 → 18)
+
+| Avant | Maintenant |
+|---|---|
+| `/taupe` `/pile-ou-face` `/machine-a-sous` `/duel` | `/jeu taupe` · `pile-ou-face` · `machine-a-sous` · `duel` |
+| `/solde` `/daily` `/virer` `/historique` | `/eco solde` · `daily` · `virer` · `historique` |
+| `/boutique` `/acheter` `/inventaire` | `/boutique voir` · `acheter` · `inventaire` |
+| `/profil` `/succes` | `/profil general` · `succes` · `niveau` (nouveau) |
+| `/classement` | `/top fortune` (+ `niveaux`, `victoires`, `daily`, `bourse`) |
+| `/eco-admin solde…` `boutique…` `export` | `/admin solde…` · `boutique…` · `export` · `xp…` (nouveau) |
+| `/sanctions` `/delwarn` | `/sanctions voir` · `revoquer` |
+| `/lock` `/unlock` `/slowmode` | `/salon verrouiller` · `deverrouiller` · `mode-lent` |
+| `/ping` | supprimé : `/info` affiche déjà la latence |
+
+- Restent seules : `/warn` `/timeout` `/untimeout` `/kick` `/ban` `/unban` `/purge`. Elles n'ont pas toutes la même
+  permission par défaut, et une sous-commande hérite forcément de celle de sa commande.
+- Options et comportements inchangés.
+
+### ✨ XP et niveaux
+
+- **Messages** : de 15 à 25 XP (tirage aléatoire), au plus une fois par minute. Les messages plus rapprochés sont
+  comptés sans rapporter d'XP. Le contenu des messages n'est jamais lu.
+- **Vocal** : 5 XP par minute, pour les membres d'un salon qui sont au moins deux, hors salon AFK et hors sourdine casque.
+- **Courbe** : passer du niveau L au niveau L+1 coûte 5L² + 50L + 100 XP. Le niveau 10 demande environ 4 h de discussion.
+- **Annonces** de montée de niveau : dans le salon du message, dans un salon dédié, ou désactivées.
+- **Rôles de niveau** : une règle par ligne (`5 = @Habitué`, mention, ID ou nom exact). Les rôles se cumulent, ou seul
+  celui du plus haut palier est gardé. Le rôle du bot doit être placé au-dessus de ces rôles, ce qui est vérifié à
+  l'enregistrement.
+- **`/profil niveau [membre]`** : niveau, barre de progression, XP, rang, messages, temps en vocal, prochaine récompense.
+- **`/admin xp ajouter|retirer|definir`** : les rôles sont resynchronisés (y compris à la baisse), sans annonce.
+- **`/config`** : deux nouvelles sections, « Niveaux » (gains, délai, vocal, annonces) et « Rôles de niveau ».
+
+### 🏆 `/top`
+
+`fortune` (solde), `niveaux` (XP), `victoires` (parties gagnées), `daily` (record de série) et `bourse` (plus-values
+réalisées) : top 10, et ta position si tu n'y figures pas.
+
+### 🔧 Technique
+
+- **Commandes parentes** (`core/commands/parents.ts`) : plusieurs modules alimentent une même commande via
+  `BotModule.subcommands`. Le registre assemble chaque commande, route les appels et refuse les doublons.
+- **`BotModule.intents`** : chaque module déclare ses intents. Les niveaux ajoutent GuildMessages et GuildVoiceStates,
+  qui ne sont pas privilégiés.
+- **Migration 004** : tables `level_members`, `level_settings` et `level_roles`, et index `idx_user_stats_rank` pour
+  les classements.
+- **Embed de classement** commun (`core/leaderboard.ts`).
+- **Tests** : 174 au total, dont 20 nouveaux (courbe, rôles, XP par message et vocal, réglages, classements, commandes
+  parentes).
+
+### 🚀 Déploiement
+
+```bash
+git pull && npm ci && npm run build && npm run deploy:commands && pm2 restart bordelbot
+```
+
+- **`deploy:commands` est indispensable** : il remplace l'ancienne liste de commandes, et les anciens noms (`/taupe`,
+  `/daily`…) disparaissent.
+- Si des rôles de niveau sont configurés, placer le rôle du bot au-dessus d'eux (il a déjà « Gérer les rôles »).
+
 ## Commit 2937c04 — Bourse, jeux d'argent, succès, paliers de sanctions et `/config`
 
 ### 📈 Bourse (`/bourse`)

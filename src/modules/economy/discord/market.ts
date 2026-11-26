@@ -1,4 +1,4 @@
-import { AttachmentBuilder, EmbedBuilder, type SlashCommandStringOption } from 'discord.js';
+import { AttachmentBuilder, EmbedBuilder, InteractionContextType, SlashCommandBuilder, type SlashCommandStringOption } from 'discord.js';
 import type { SlashCommand } from '../../../core/commands/types.js';
 import { relativeTime, replyEphemeral } from '../../../core/replies.js';
 import { formatAmount } from '../EconomyService.js';
@@ -7,7 +7,7 @@ import { formatPrice, renderPriceChart } from '../market/chart.js';
 import { MARKET_FEE_RATE, MAX_TRADE_QUANTITY } from '../market/MarketService.js';
 import type { GetServices } from '../services.js';
 import { achievementLines, errorText, percentChange, signedAmount } from './format.js';
-import { guildCommand, guildOnly, rejectBot } from './helpers.js';
+import { guildOnly, rejectBot } from './helpers.js';
 
 const MARKET_COLOR = 0x00b894;
 const HOUR = 3_600_000;
@@ -29,7 +29,10 @@ const assetOption = (o: SlashCommandStringOption) =>
 const feeText = `${Math.round(MARKET_FEE_RATE * 100)} %`;
 
 export function createMarketCommand(getServices: GetServices): SlashCommand {
-  const data = guildCommand('bourse', 'Bourse fictive : cours, graphiques, achat et vente')
+  const data = new SlashCommandBuilder()
+    .setName('bourse')
+    .setDescription('Bourse fictive : cours, graphiques, achat et vente')
+    .setContexts(InteractionContextType.Guild)
     .addSubcommand((s) => s.setName('cours').setDescription('Cours de tous les actifs et dernières actualités'))
     .addSubcommand((s) =>
       s

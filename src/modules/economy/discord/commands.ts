@@ -1,14 +1,15 @@
 import { EmbedBuilder, MessageFlags, escapeMarkdown, type AutocompleteInteraction } from 'discord.js';
-import type { SlashCommand } from '../../../core/commands/types.js';
+import type { Subcommand } from '../../../core/commands/types.js';
 import { relativeTime, replyEphemeral } from '../../../core/replies.js';
 import { formatAmount, MAX_AMOUNT, MAX_PURCHASE_QUANTITY } from '../EconomyService.js';
 import type { GetServices } from '../services.js';
-import { achievementLines, ECONOMY_COLOR, errorText, MEDALS, transactionLine } from './format.js';
-import { guildCommand as base, guildOnly, rejectBot } from './helpers.js';
+import { achievementLines, ECONOMY_COLOR, errorText, transactionLine } from './format.js';
+import { guildOnly, rejectBot, subcommand } from './helpers.js';
 
-export function createEconomyCommands(getService: GetServices): SlashCommand[] {
-  const solde: SlashCommand = {
-    data: base('solde', 'Affiche ton solde ou celui d’un membre').addUserOption((o) =>
+export function createEconomyCommands(getService: GetServices): Subcommand[] {
+  const solde: Subcommand = {
+    parent: 'eco',
+    data: subcommand('solde', 'Affiche ton solde ou celui d’un membre').addUserOption((o) =>
       o.setName('membre').setDescription('Membre à consulter'),
     ),
     execute: guildOnly(async (i, { eco }) => {
@@ -27,8 +28,9 @@ export function createEconomyCommands(getService: GetServices): SlashCommand[] {
     }, getService),
   };
 
-  const daily: SlashCommand = {
-    data: base('daily', 'Récupère ta récompense quotidienne'),
+  const daily: Subcommand = {
+    parent: 'eco',
+    data: subcommand('daily', 'Récupère ta récompense quotidienne'),
     execute: guildOnly(async (i, { eco, progress }) => {
       const r = eco.claimDaily(i.guildId, i.user.id);
       if (!r.ok) return replyEphemeral(i, errorText(r.error));
@@ -47,8 +49,9 @@ export function createEconomyCommands(getService: GetServices): SlashCommand[] {
     }, getService),
   };
 
-  const virer: SlashCommand = {
-    data: base('virer', 'Envoie de l’argent à un membre')
+  const virer: Subcommand = {
+    parent: 'eco',
+    data: subcommand('virer', 'Envoie de l’argent à un membre')
       .addUserOption((o) => o.setName('membre').setDescription('Destinataire').setRequired(true))
       .addIntegerOption((o) =>
         o.setName('montant').setDescription('Montant à envoyer').setRequired(true).setMinValue(1).setMaxValue(MAX_AMOUNT),
@@ -71,26 +74,9 @@ export function createEconomyCommands(getService: GetServices): SlashCommand[] {
     }, getService),
   };
 
-  const classement: SlashCommand = {
-    data: base('classement', 'Les membres les plus riches du serveur'),
-    execute: guildOnly(async (i, { eco }) => {
-      const { currencyName } = eco.getSettings(i.guildId);
-      const top = eco.leaderboard(i.guildId, 10);
-      const lines = top.map(
-        (r, idx) => `${MEDALS[idx] ?? `**${idx + 1}.**`} <@${r.userId}> — ${formatAmount(r.balance, currencyName)}`,
-      );
-      const rank = eco.getRank(i.guildId, i.user.id);
-      const embed = new EmbedBuilder()
-        .setColor(ECONOMY_COLOR)
-        .setTitle('🏆 Classement')
-        .setDescription(lines.length ? lines.join('\n') : '*Personne n’a encore d’argent sur ce serveur.*');
-      if (rank && rank > 10) embed.setFooter({ text: `Ta position : ${rank}ᵉ` });
-      await i.reply({ embeds: [embed], allowedMentions: { parse: [] } });
-    }, getService),
-  };
-
-  const historique: SlashCommand = {
-    data: base('historique', 'Tes dernières opérations'),
+  const historique: Subcommand = {
+    parent: 'eco',
+    data: subcommand('historique', 'Tes dernières opérations'),
     execute: guildOnly(async (i, { eco }) => {
       const { currencyName } = eco.getSettings(i.guildId);
       const txs = eco.history(i.guildId, i.user.id, 10);
@@ -104,8 +90,9 @@ export function createEconomyCommands(getService: GetServices): SlashCommand[] {
     }, getService),
   };
 
-  const boutique: SlashCommand = {
-    data: base('boutique', 'Les articles en vente sur ce serveur'),
+  const boutique: Subcommand = {
+    parent: 'boutique',
+    data: subcommand('voir', 'Les articles en vente sur ce serveur'),
     execute: guildOnly(async (i, { eco }) => {
       const { currencyName } = eco.getSettings(i.guildId);
       const items = eco.listItems(i.guildId);
@@ -116,7 +103,7 @@ export function createEconomyCommands(getService: GetServices): SlashCommand[] {
           name: `${item.name} — ${formatAmount(item.price, currencyName)}`,
           value: [
             item.description ? escapeMarkdown(item.description) : null,
-            `\`/acheter article:${item.key}\`${item.stackable ? '' : ' · exemplaire unique'}`,
+            `\`/boutique acheter article:${item.key}\`${item.stackable ? '' : ' · exemplaire unique'}`,
           ]
             .filter(Boolean)
             .join('\n'),
@@ -126,8 +113,9 @@ export function createEconomyCommands(getService: GetServices): SlashCommand[] {
     }, getService),
   };
 
-  const acheter: SlashCommand = {
-    data: base('acheter', 'Achète un article de la boutique')
+  const acheter: Subcommand = {
+    parent: 'boutique',
+    data: subcommand('acheter', 'Achète un article de la boutique')
       .addStringOption((o) =>
         o.setName('article').setDescription('Article à acheter').setRequired(true).setAutocomplete(true),
       )
@@ -159,8 +147,9 @@ export function createEconomyCommands(getService: GetServices): SlashCommand[] {
     },
   };
 
-  const inventaire: SlashCommand = {
-    data: base('inventaire', 'Affiche ton inventaire ou celui d’un membre').addUserOption((o) =>
+  const inventaire: Subcommand = {
+    parent: 'boutique',
+    data: subcommand('inventaire', 'Affiche ton inventaire ou celui d’un membre').addUserOption((o) =>
       o.setName('membre').setDescription('Membre à consulter'),
     ),
     execute: guildOnly(async (i, { eco }) => {
@@ -179,5 +168,5 @@ export function createEconomyCommands(getService: GetServices): SlashCommand[] {
     }, getService),
   };
 
-  return [solde, daily, virer, classement, historique, boutique, acheter, inventaire];
+  return [solde, daily, virer, historique, boutique, acheter, inventaire];
 }

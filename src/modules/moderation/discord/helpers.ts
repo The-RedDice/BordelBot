@@ -4,6 +4,7 @@ import {
   MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
+  SlashCommandSubcommandBuilder,
   type ChatInputCommandInteraction,
   type Guild,
   type GuildMember,
@@ -129,6 +130,10 @@ export const base = (name: string, description: string, perm: bigint) =>
     .setDescription(description)
     .setContexts(InteractionContextType.Guild)
     .setDefaultMemberPermissions(perm);
+
+/** Sous-commande de `/sanctions` ou `/salon` : la permission par défaut est celle de la parente. */
+export const sub = (name: string, description: string) =>
+  new SlashCommandSubcommandBuilder().setName(name).setDescription(description);
 
 export const reasonOption = (required: boolean) => (o: SlashCommandStringOption) =>
   o.setName('raison').setDescription('Raison (visible par le membre et dans les logs)').setRequired(required).setMaxLength(MAX_REASON_LENGTH);

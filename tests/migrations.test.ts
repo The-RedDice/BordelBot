@@ -7,10 +7,10 @@ describe('migrations', () => {
   it('applique le schéma puis est idempotent', () => {
     const db = openDatabase(':memory:');
     const first = runMigrations(db, migrations);
-    expect(first.applied).toEqual([1, 2, 3]);
+    expect(first.applied).toEqual([1, 2, 3, 4]);
     const second = runMigrations(db, migrations);
     expect(second.applied).toEqual([]);
-    expect(second.currentVersion).toBe(3);
+    expect(second.currentVersion).toBe(4);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
@@ -24,6 +24,9 @@ describe('migrations', () => {
       'game_sessions',
       'guild_settings',
       'inventory_items',
+      'level_members',
+      'level_roles',
+      'level_settings',
       'market_holdings',
       'market_news',
       'market_prices',
@@ -78,7 +81,7 @@ describe('migrations', () => {
        VALUES ('s1', 'u', 'mole', 'win'), ('s1', 'v', 'agent', 'loss'), ('s2', 'u', NULL, NULL)`,
     ).run();
 
-    expect(runMigrations(db, migrations).applied).toEqual([3]);
+    expect(runMigrations(db, migrations.filter((m) => m.version <= 3)).applied).toEqual([3]);
 
     expect(db.prepare('SELECT amount, note, kind FROM economy_transactions').get()).toEqual({
       amount: 70,

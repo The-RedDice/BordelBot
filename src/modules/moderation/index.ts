@@ -30,9 +30,12 @@ const deps: Deps = {
   },
 };
 
+const { commands, subcommands } = createModerationCommands(deps);
+
 export const moderationModule: BotModule = {
   name: 'moderation',
-  commands: createModerationCommands(deps),
+  commands,
+  subcommands,
   settings: [createModerationSettings(getModerationService)],
   init(ctx) {
     service = new ModerationService(ctx);

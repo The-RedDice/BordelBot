@@ -7,10 +7,10 @@ import {
   type TextChannel,
   type VoiceChannel,
 } from 'discord.js';
-import type { SlashCommand } from '../../../core/commands/types.js';
+import type { Subcommand } from '../../../core/commands/types.js';
 import { replyEphemeral } from '../../../core/replies.js';
 import { formatDuration, parseDuration } from '../duration.js';
-import { botMember, confirm, guard, postModLog, reasonOption, base, type Cmd, type Deps } from './helpers.js';
+import { botMember, confirm, guard, postModLog, reasonOption, sub, type Cmd, type Deps } from './helpers.js';
 import { auditReason } from './render.js';
 
 /** Permissions retirées à @everyone par un verrouillage. */
@@ -65,11 +65,12 @@ async function checkChannelPermissions(i: Cmd, channel: LockableChannel | Slowmo
   return false;
 }
 
-export function createChannelCommands(deps: Deps): SlashCommand[] {
+export function createChannelCommands(deps: Deps): Subcommand[] {
   const service = () => deps.getService();
 
-  const lock: SlashCommand = {
-    data: base('lock', 'Verrouille un salon : plus personne ne peut y écrire', PermissionFlagsBits.ManageChannels)
+  const lock: Subcommand = {
+    parent: 'salon',
+    data: sub('verrouiller', 'Verrouille un salon : plus personne ne peut y écrire')
       .addChannelOption((o) => o.setName('salon').setDescription('Salon (celui-ci par défaut)').addChannelTypes(...LOCKABLE))
       .addStringOption(reasonOption(false)),
     async execute(raw) {
@@ -108,13 +109,14 @@ export function createChannelCommands(deps: Deps): SlashCommand[] {
         reason,
         metadata: { previous },
       });
-      await confirm(i, c, [`🔒 ${channel} est verrouillé. \`/unlock\` pour rouvrir.`]);
+      await confirm(i, c, [`🔒 ${channel} est verrouillé. \`/salon deverrouiller\` pour rouvrir.`]);
       await postModLog(deps, i.guild, c);
     },
   };
 
-  const unlock: SlashCommand = {
-    data: base('unlock', 'Déverrouille un salon et restaure ses permissions', PermissionFlagsBits.ManageChannels)
+  const unlock: Subcommand = {
+    parent: 'salon',
+    data: sub('deverrouiller', 'Déverrouille un salon et restaure ses permissions')
       .addChannelOption((o) => o.setName('salon').setDescription('Salon (celui-ci par défaut)').addChannelTypes(...LOCKABLE))
       .addStringOption(reasonOption(false)),
     async execute(raw) {
@@ -145,8 +147,9 @@ export function createChannelCommands(deps: Deps): SlashCommand[] {
     },
   };
 
-  const slowmode: SlashCommand = {
-    data: base('slowmode', 'Mode lent : délai minimal entre deux messages d’un membre', PermissionFlagsBits.ManageChannels)
+  const slowmode: Subcommand = {
+    parent: 'salon',
+    data: sub('mode-lent', 'Mode lent : délai minimal entre deux messages d’un membre')
       .addStringOption((o) =>
         o.setName('duree').setDescription('Ex. : 5s, 30s, 2m, 1h (6 h max) ; 0 ou off pour désactiver').setRequired(true).setMaxLength(16),
       )

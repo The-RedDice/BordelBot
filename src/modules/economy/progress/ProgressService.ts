@@ -35,6 +35,13 @@ function prepareStatements(db: Db) {
     unlocked: db.prepare<[string, string], { achievement: string; unlockedAt: number }>(
       'SELECT achievement, unlocked_at AS unlockedAt FROM achievements WHERE guild_id = ? AND user_id = ?',
     ),
+    top: db.prepare<[string, StatKey, number], { userId: string; value: number }>(
+      `SELECT user_id AS userId, value FROM user_stats
+       WHERE guild_id = ? AND stat = ? AND value > 0 ORDER BY value DESC, user_id LIMIT ?`,
+    ),
+    countAbove: db
+      .prepare<[string, StatKey, number], number>('SELECT COUNT(*) FROM user_stats WHERE guild_id = ? AND stat = ? AND value > ?')
+      .pluck(),
     unlock: db.prepare(
       `INSERT INTO achievements (guild_id, user_id, achievement, unlocked_at)
        VALUES (@guildId, @userId, @achievement, @now) ON CONFLICT DO NOTHING`,
@@ -58,6 +65,18 @@ export class ProgressService {
 
   stats(guildId: string, userId: string): Partial<Record<StatKey, number>> {
     return Object.fromEntries(this.stmts.stats.all(guildId, userId).map((r) => [r.stat, r.value]));
+  }
+
+  /** Meilleurs membres pour une statistique (valeurs strictement positives). */
+  top(guildId: string, stat: StatKey, limit = 10): { userId: string; value: number }[] {
+    return this.stmts.top.all(guildId, stat, limit);
+  }
+
+  /** Rang du membre pour une statistique (1 = meilleur), ou null s'il n'est pas classé. */
+  rank(guildId: string, userId: string, stat: StatKey): number | null {
+    const value = this.stats(guildId, userId)[stat] ?? 0;
+    if (value <= 0) return null;
+    return (this.stmts.countAbove.get(guildId, stat, value) ?? 0) + 1;
   }
 
   progress(guildId: string, userId: string): AchievementProgress[] {
