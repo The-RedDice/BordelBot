@@ -1,5 +1,28 @@
 # Journal des modifications
 
+## Planificateur de tâches
+
+Base technique pour les rappels, sondages, anniversaires, la loterie, les rôles temporaires et les saisons. Rien de
+visible pour les membres pour l'instant.
+
+- **`ctx.scheduler`** (`core/scheduler/JobScheduler.ts`) : planifie une tâche à une date (`schedule`), l'annule
+  (`cancel`, `cancelByKey`), liste les tâches en attente (`list`, `get`, `getByKey`).
+- **Persistant** : les tâches sont en base (table `scheduled_jobs`). Une échéance passée pendant un arrêt du bot
+  est exécutée au redémarrage.
+- **Précis** : une seule minuterie, réglée sur la prochaine échéance (vérification au moins toutes les 60 s).
+- **Typé** : chaque type de tâche et son contenu sont déclarés dans `core/jobs.ts`, comme les événements dans
+  `core/events.ts`.
+- **Clé unique facultative** : planifier de nouveau avec la même clé remplace la tâche (ex. `lottery:<serveur>`).
+- **Tâches récurrentes** : le gestionnaire renvoie `{ rescheduleAt }` pour reprogrammer la tâche.
+- **Erreurs** : nouvel essai après 1 min, 5 min, 30 min, 2 h puis 12 h, puis abandon (la tâche reste en base avec
+  `failed_at` et `last_error`).
+- **Au moins une fois** : une tâche n'est supprimée qu'une fois son gestionnaire terminé. Si le bot s'arrête en
+  plein milieu, elle est rejouée.
+- **Démarrage et arrêt** : il démarre après les `ready` des modules et s'arrête avant leur `dispose`, en attendant
+  au plus 5 s la tâche en cours.
+- **Migration 005** : table `scheduled_jobs`.
+- **Tests** : 193 au total, dont 10 nouveaux.
+
 ## Sauvegardes automatiques de la base
 
 - **Chaque jour** : copie à chaud de la base (API de sauvegarde de SQLite), sans arrêter le bot. La vérification se

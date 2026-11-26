@@ -8,6 +8,8 @@ import { openDatabase } from './core/database/connection.js';
 import { migrations } from './core/database/migrations/index.js';
 import { EventBus } from './core/EventBus.js';
 import type { BotEvents } from './core/events.js';
+import type { BotJobs } from './core/jobs.js';
+import { JobScheduler } from './core/scheduler/JobScheduler.js';
 import { createInteractionRouter } from './core/interactionRouter.js';
 import { createLogger } from './core/logger.js';
 import { modules } from './modules/index.js';
@@ -27,7 +29,8 @@ async function main(): Promise<void> {
   if (backups) backups.start();
   else logger.warn('Sauvegardes désactivées (BACKUP_KEEP=0)');
 
-  const ctx: BotContext = { db, bus: new EventBus<BotEvents>(logger.child('bus')), logger };
+  const scheduler = new JobScheduler<BotJobs>(db, { logger: logger.child('scheduler') });
+  const ctx: BotContext = { db, bus: new EventBus<BotEvents>(logger.child('bus')), logger, scheduler };
 
   const registry = new CommandRegistry(modules);
   for (const mod of modules) {
@@ -45,6 +48,8 @@ async function main(): Promise<void> {
         logger.error(`Échec du démarrage des tâches du module ${mod.name}`, err);
       }
     }
+    // Après les `ready` : les gestionnaires peuvent compter sur des modules prêts.
+    scheduler.start(c);
   });
   client.on(Events.InteractionCreate, createInteractionRouter(registry, ctx));
   client.on(Events.Error, (err) => logger.error('Erreur du client Discord', err));
@@ -54,6 +59,8 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info(`${signal} reçu, arrêt en cours…`);
+    // Avant les modules : aucune tâche ne doit s'exécuter sur un module déjà libéré.
+    await scheduler.stop();
     for (const mod of [...modules].reverse()) {
       try {
         await mod.dispose?.();

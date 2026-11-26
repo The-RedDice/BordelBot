@@ -72,7 +72,7 @@ Logs : `LOG_FORMAT=json` écrit une ligne JSON par événement (filtrable avec `
 
 ```
 src/
-├─ core/                 client, EventBus typé, routeur d'interactions, SQLite + migrations, /config
+├─ core/                 client, EventBus typé, planificateur, routeur d'interactions, SQLite + migrations, /config
 └─ modules/
    ├─ games/
    │  ├─ engine/         FSM génériques et sessions, sans discord.js
@@ -90,6 +90,11 @@ src/
   chaque module y ajoute ses sous-commandes (`BotModule.subcommands`) et le registre les assemble.
 - **Découplage** : les modules ne s'importent pas entre eux. Les jeux émettent `game:finished` sur l'EventBus,
   l'économie s'y abonne.
+- **Tâches planifiées** : `ctx.scheduler` (`core/scheduler/JobScheduler.ts`) exécute une action à une date donnée
+  (rappel, clôture de sondage, tirage…). Les échéances sont en base et survivent aux redémarrages. Un module ajoute
+  son type de tâche dans `core/jobs.ts`, déclare son gestionnaire dans `init`
+  (`ctx.scheduler.register('reminder', async (job, client) => …)`), puis planifie avec
+  `ctx.scheduler.schedule('reminder', date, contenu)`.
 - **Testabilité** : la logique (FSM, économie, durées, hiérarchie) ne dépend pas de discord.js ; le hasard,
   l'horloge et les timers sont injectés.
 - **Intégrité** : toute opération économique est une transaction SQLite journalisée ; une récompense ne peut pas

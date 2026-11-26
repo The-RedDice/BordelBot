@@ -5,6 +5,7 @@ import { runMigrations } from '../src/core/database/migrator.js';
 import { EventBus } from '../src/core/EventBus.js';
 import type { BotEvents } from '../src/core/events.js';
 import { nullLogger } from '../src/core/logger.js';
+import { JobScheduler } from '../src/core/scheduler/JobScheduler.js';
 import {
   DAILY_COOLDOWN_MS,
   EconomyService,
@@ -154,7 +155,7 @@ describe('EconomyService', () => {
 
     it('est branché sur l’EventBus via le module', async () => {
       const { economyModule } = await import('../src/modules/economy/index.js');
-      await economyModule.init?.({ db, bus, logger: nullLogger });
+      await economyModule.init?.({ db, bus, logger: nullLogger, scheduler: new JobScheduler(db) });
       await bus.emit('game:finished', event({ sessionId: 'game-bus' }));
       // 50 de victoire + 50 pour le succès « Première victoire ».
       expect(eco.getBalance(G, 'b')).toBe(100);

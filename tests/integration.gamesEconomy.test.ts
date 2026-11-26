@@ -5,6 +5,7 @@ import { runMigrations } from '../src/core/database/migrator.js';
 import { EventBus } from '../src/core/EventBus.js';
 import type { BotEvents } from '../src/core/events.js';
 import { nullLogger } from '../src/core/logger.js';
+import { JobScheduler } from '../src/core/scheduler/JobScheduler.js';
 import { economyModule, getEconomyService, getEconomyServices } from '../src/modules/economy/index.js';
 import { seededRng } from '../src/modules/games/engine/rng.js';
 import { GameService } from '../src/modules/games/GameService.js';
@@ -15,7 +16,7 @@ describe('Jeux → EventBus → Économie', () => {
   it('une partie de Taupe gagnée par la taupe la crédite (×3), une seule fois', async () => {
     const db = openDatabase(':memory:');
     runMigrations(db, migrations);
-    const ctx = { db, bus: new EventBus<BotEvents>(nullLogger), logger: nullLogger };
+    const ctx = { db, bus: new EventBus<BotEvents>(nullLogger), logger: nullLogger, scheduler: new JobScheduler(db) };
     await economyModule.init?.(ctx);
 
     const scheduler = new ManualScheduler();

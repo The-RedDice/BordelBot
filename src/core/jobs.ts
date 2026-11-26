@@ -1,0 +1,11 @@
+/**
+ * Catalogue des tâches planifiées : type de tâche → contenu (`payload`). Comme
+ * `BotEvents`, c'est le contrat partagé : chaque module ajoute ici ses types de
+ * tâches, puis déclare leur gestionnaire avec `ctx.scheduler.register` dans son `init`.
+ *
+ * Le contenu est stocké en JSON : uniquement des données sérialisables
+ * (chaînes, nombres, booléens, tableaux, objets simples ; pas de Date ni de Map).
+ *
+ * Exemple : `'reminder': { readonly userId: string; readonly channelId: string; readonly text: string };`
+ */
+export interface BotJobs {}

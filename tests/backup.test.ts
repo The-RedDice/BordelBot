@@ -111,7 +111,7 @@ describe('sauvegarde avant migration', () => {
     expect(listBackups(options().dir)).toEqual([]);
 
     const r = await migrateWithBackup(db, migrations, options());
-    expect(r.applied).toEqual([4]);
+    expect(r.applied).toEqual(migrations.map((m) => m.version).filter((v) => v > 3));
     const files = listBackups(options().dir);
     expect(files.map((f) => f.kind)).toEqual(['pre-v4']);
     const copy = new Database(join(options().dir, files[0]?.name ?? ''), { readonly: true });
@@ -126,7 +126,7 @@ describe('sauvegarde avant migration', () => {
 
   it('ne sauvegarde ni une base vierge ni quand les sauvegardes sont désactivées', async () => {
     const fresh = openDatabase(join(dir, 'fresh.sqlite'));
-    expect((await migrateWithBackup(fresh, migrations, options())).applied).toEqual([1, 2, 3, 4]);
+    expect((await migrateWithBackup(fresh, migrations, options())).applied).toEqual(migrations.map((m) => m.version));
     fresh.close();
 
     const old = openDatabase(join(dir, 'old.sqlite'));
