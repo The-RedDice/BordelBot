@@ -65,6 +65,19 @@ export function nextWeekly(at: number, weekday: number, hour: number, timeZone: 
   return t;
 }
 
+/** Prochaine occurrence (strictement après `at`) d'une heure locale, chaque jour. */
+export function nextDaily(at: number, hour: number, timeZone: string): number {
+  const p = zonedParts(at, timeZone);
+  const today = zonedTime(p.year, p.month, p.day, hour, timeZone);
+  return today > at ? today : zonedTime(p.year, p.month, p.day + 1, hour, timeZone);
+}
+
+/** Jour local : « 2026-11-26 ». */
+export function dayId(at: number, timeZone: string): string {
+  const p = zonedParts(at, timeZone);
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
 /** Identifiant du mois local : « 2026-11 ». */
 export function monthId(at: number, timeZone: string): string {
   const p = zonedParts(at, timeZone);

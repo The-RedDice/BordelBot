@@ -4,7 +4,10 @@ import { relativeTime, replyEphemeral } from '../../../core/replies.js';
 import { formatAmount } from '../EconomyService.js';
 import { MARKET_ASSETS } from '../market/assets.js';
 import { formatPrice, renderPriceChart } from '../market/chart.js';
-import { MARKET_FEE_RATE, MAX_TRADE_QUANTITY } from '../market/MarketService.js';
+import { DIVIDEND_HOUR, dividendFor, MARKET_FEE_RATE, MAX_TRADE_QUANTITY } from '../market/MarketService.js';
+
+/** 0,002 → « 0,2 % ». */
+export const rateText = (rate: number): string => `${(rate * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`;
 import type { GetServices } from '../services.js';
 import { achievementLines, errorText, percentChange, signedAmount } from './format.js';
 import { guildOnly, rejectBot } from './helpers.js';
@@ -83,7 +86,8 @@ export function createMarketCommand(getServices: GetServices): SlashCommand {
       const lines = market.quotes().map(
         (q) =>
           `${q.asset.emoji} **${q.asset.symbol}** ${q.asset.name} — **${formatPrice(q.price)}**\n` +
-          `  1 h : ${percentChange(q.change1h)} · 24 h : ${percentChange(q.change24h)}`,
+          `  1 h : ${percentChange(q.change1h)} · 24 h : ${percentChange(q.change24h)}` +
+          (q.asset.dividendRate ? ` · 💵 dividende ${rateText(q.asset.dividendRate)}/jour` : ''),
       );
       const news = market.news(4);
       const embed = new EmbedBuilder()
@@ -175,6 +179,13 @@ export function createMarketCommand(getServices: GetServices): SlashCommand {
         { name: 'Investi', value: formatAmount(p.costBasis, cur), inline: true },
         { name: 'Plus-value latente', value: signedAmount(p.value - p.costBasis, cur), inline: true },
       );
+      const daily = p.positions.reduce(
+        (sum, pos) => sum + (pos.asset.dividendRate ? dividendFor(pos.quantity, pos.price, pos.asset.dividendRate) : 0),
+        0,
+      );
+      if (daily > 0) {
+        embed.addFields({ name: '💵 Dividendes', value: `≈ ${formatAmount(daily, cur)} par jour, versés à ${DIVIDEND_HOUR} h (heure de Paris)` });
+      }
     }
     await i.reply({ embeds: [embed], allowedMentions: { parse: [] } });
   }, getServices);

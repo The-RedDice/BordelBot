@@ -13,12 +13,15 @@ export interface MarketAsset {
   readonly volatility: number;
   readonly reversion: number;
   readonly newsChance: number;
+  /** Dividende versé chaque jour aux détenteurs, en part de la valeur détenue (0,002 = 0,2 %). */
+  readonly dividendRate?: number;
 }
 
 export const MARKET_ASSETS: readonly MarketAsset[] = [
   { symbol: 'BDL', name: 'BordelCoin', emoji: '🪙', basePrice: 250, volatility: 0.012, reversion: 0.002, newsChance: 0.003 },
   { symbol: 'TPC', name: 'TaupeCoin', emoji: '🐀', basePrice: 40, volatility: 0.022, reversion: 0.002, newsChance: 0.004 },
-  { symbol: 'CRS', name: 'Croissant & Cie', emoji: '🥐', basePrice: 120, volatility: 0.005, reversion: 0.003, newsChance: 0.0015 },
+  // Actif stable : verse un dividende quotidien (rentabilisé en ~10 jours, frais d'achat et de vente compris).
+  { symbol: 'CRS', name: 'Croissant & Cie', emoji: '🥐', basePrice: 120, volatility: 0.005, reversion: 0.003, newsChance: 0.0015, dividendRate: 0.002 },
   { symbol: 'PIZ', name: 'PizzaCorp', emoji: '🍕', basePrice: 80, volatility: 0.008, reversion: 0.0025, newsChance: 0.002 },
   { symbol: 'MEME', name: 'MemeStonk', emoji: '🚀', basePrice: 15, volatility: 0.035, reversion: 0.0015, newsChance: 0.006 },
 ];

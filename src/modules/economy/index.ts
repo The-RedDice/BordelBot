@@ -15,7 +15,7 @@ import { createEconomyTopCommands } from './discord/top.js';
 import { EconomyService } from './EconomyService.js';
 import { GamblingService } from './gambling/GamblingService.js';
 import { WagerService } from './gambling/WagerService.js';
-import { MARKET_TICK_MS, MarketService } from './market/MarketService.js';
+import { DIVIDEND_HOUR, MARKET_TICK_MS, MarketService } from './market/MarketService.js';
 import { ProgressService, type UnlockedAchievement } from './progress/ProgressService.js';
 import type { EconomyServices } from './services.js';
 import { createExtrasSettings } from './discord/extrasSettings.js';
@@ -29,6 +29,7 @@ import { closeSeasons, createSeasonTopCommand, nextSeasonClose } from './discord
 import { EventSettingsStore } from './eventsSettings.js';
 import { LotteryService } from './lottery/LotteryService.js';
 import { SeasonService } from './seasons/SeasonService.js';
+import { dayId, nextDaily, PARIS } from '../../core/time.js';
 
 /**
  * Module Économie : soldes, daily, virements, boutique, jeux d'argent, bourse,
@@ -47,6 +48,7 @@ let unregisterJobs: (() => void)[] = [];
 
 export const RICHEST_TICK_KEY = 'economy:richest';
 export const SEASONS_CLOSE_KEY = 'seasons:close';
+export const DIVIDENDS_KEY = 'market:dividends';
 
 /** Début de l'heure suivante, plus quelques secondes. */
 const nextHour = (at: number) => (Math.floor(at / 3_600_000) + 1) * 3_600_000 + 5_000;
@@ -168,7 +170,20 @@ export const economyModule: BotModule = {
         await closeSeasons(c, getServices, log);
         return { rescheduleAt: nextSeasonClose(Date.now()) };
       }),
+      ctx.scheduler.register('market:dividends', () => {
+        // Jour du versement prévu (un rattrapage après un arrêt verse celui du jour où il a lieu).
+        const r = market.payDividends(dayId(Date.now(), PARIS));
+        if (!r.ok) throw new Error(r.error.message);
+        if (r.value.length) {
+          const total = r.value.reduce((sum, p) => sum + p.amount, 0);
+          log.info(`Dividendes : ${total} versé(s) à ${r.value.length} détenteur(s)`);
+        }
+        return { rescheduleAt: nextDaily(Date.now(), DIVIDEND_HOUR, PARIS) };
+      }),
     ];
+    if (!ctx.scheduler.getByKey(DIVIDENDS_KEY)) {
+      ctx.scheduler.schedule('market:dividends', nextDaily(Date.now(), DIVIDEND_HOUR, PARIS), {}, { key: DIVIDENDS_KEY });
+    }
     if (!ctx.scheduler.getByKey(RICHEST_TICK_KEY)) {
       ctx.scheduler.schedule('economy:richest', Date.now(), {}, { key: RICHEST_TICK_KEY });
     }

@@ -67,6 +67,20 @@ export interface Portfolio {
 
 export const tradeFee = (amount: number): number => Math.max(1, Math.ceil(amount * MARKET_FEE_RATE));
 
+/** Heure du versement quotidien des dividendes (heure de Paris). */
+export const DIVIDEND_HOUR = 12;
+
+export interface DividendPayment {
+  readonly guildId: string;
+  readonly userId: string;
+  readonly symbol: string;
+  readonly quantity: number;
+  readonly amount: number;
+}
+
+/** Dividende d'une position : valeur au cours × taux, arrondi à l'unité inférieure. */
+export const dividendFor = (quantity: number, price: number, rate: number): number => Math.floor(quantity * price * rate);
+
 function prepareStatements(db: Db) {
   return {
     last: db.prepare<[string], PricePoint>('SELECT at, price FROM market_prices WHERE symbol = ? ORDER BY at DESC LIMIT 1'),
@@ -97,6 +111,14 @@ function prepareStatements(db: Db) {
          quantity = excluded.quantity, cost_basis = excluded.cost_basis, updated_at = excluded.updated_at`,
     ),
     deleteHolding: db.prepare('DELETE FROM market_holdings WHERE guild_id = ? AND user_id = ? AND symbol = ?'),
+    holders: db.prepare<[string], { guildId: string; userId: string; quantity: number }>(
+      'SELECT guild_id AS guildId, user_id AS userId, quantity FROM market_holdings WHERE symbol = ? ORDER BY guild_id, user_id',
+    ),
+    hasDividend: db
+      .prepare<[string, string, string], number>(
+        `SELECT 1 FROM economy_transactions WHERE guild_id = ? AND user_id = ? AND kind = 'dividend' AND reference = ?`,
+      )
+      .pluck(),
   };
 }
 
@@ -219,6 +241,38 @@ export class MarketService {
       value: positions.reduce((s, p) => s + p.value, 0),
       costBasis: positions.reduce((s, p) => s + p.costBasis, 0),
     };
+  }
+
+  // ----- Dividendes -----
+
+  /**
+   * Verse le dividende du jour `day` (AAAA-MM-JJ) à chaque détenteur des actifs qui
+   * en distribuent : part de la valeur détenue au cours actuel, arrondie à l'unité
+   * inférieure. Idempotent : un seul versement par membre, actif et jour.
+   */
+  payDividends(day: string): EcoResult<DividendPayment[]> {
+    return this.eco.transact((ledger) => {
+      const paid: DividendPayment[] = [];
+      for (const asset of MARKET_ASSETS) {
+        if (!asset.dividendRate) continue;
+        const { price } = this.quote(asset);
+        const reference = `${asset.symbol}:${day}`;
+        for (const h of this.stmts.holders.all(asset.symbol)) {
+          const amount = dividendFor(h.quantity, price, asset.dividendRate);
+          if (amount <= 0 || this.stmts.hasDividend.get(h.guildId, h.userId, reference) !== undefined) continue;
+          ledger.apply({
+            guildId: h.guildId,
+            userId: h.userId,
+            delta: amount,
+            kind: 'dividend',
+            reference,
+            note: `${h.quantity} ${asset.symbol}`,
+          });
+          paid.push({ guildId: h.guildId, userId: h.userId, symbol: asset.symbol, quantity: h.quantity, amount });
+        }
+      }
+      return paid;
+    });
   }
 
   // ----- Ordres -----

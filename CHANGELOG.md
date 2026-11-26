@@ -1,5 +1,20 @@
 # Journal des modifications
 
+## Économie, lot 3 : dividendes de CRS
+
+- **🥐 CRS** (Croissant & Cie, l'actif stable) verse chaque jour **à midi (heure de Paris)** un dividende de **0,2 %**
+  de la valeur détenue au cours du moment, arrondi à l'unité inférieure (une petite position peut ne rien toucher).
+  Avec 1 % de frais à l'achat et à la vente, une position est rentabilisée en une dizaine de jours.
+- Versé sur chaque serveur où le membre détient des parts ; « 💵 Dividende » dans `/eco historique`.
+- `/bourse cours` indique le dividende de CRS ; `/bourse portefeuille` estime les dividendes du jour.
+- **Une fois par jour au plus** (index unique `uq_tx_dividend`). Après un arrêt de plusieurs jours, un seul versement
+  a lieu au redémarrage : les jours manqués ne sont pas rattrapés.
+- Seuls les dividendes ont été retenus pour la bourse 2.0 (pas d'ordres limites ni de vente à découvert).
+- **Technique** : `dividendRate` facultatif sur chaque actif, `MarketService.payDividends`, tâche quotidienne
+  `market:dividends` (clé fixe), `nextDaily`/`dayId` dans `core/time.ts`. Migration 011. 287 tests, dont 4 nouveaux.
+
+**Déploiement** : `git pull && npm ci && npm run build && pm2 restart bordelbot` (pas de nouvelle commande).
+
 ## Économie, lot 2 : loterie hebdomadaire et saisons mensuelles
 
 ### 🎟️ `/eco loterie acheter [tickets]` · `/eco loterie voir`

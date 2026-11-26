@@ -17,4 +17,6 @@ export interface BotJobs {
   'lottery:draw': { readonly guildId: string; readonly drawId: number };
   /** Le 1er du mois : clôture de la saison précédente (podium, bonus, rôle de champion). */
   'seasons:close': Record<string, never>;
+  /** Chaque jour à midi : dividendes des actifs qui en versent (CRS). */
+  'market:dividends': Record<string, never>;
 }

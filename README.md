@@ -57,6 +57,7 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
 - **Bourse** : 5 actifs fictifs dont le cours évolue toutes les 5 minutes (marche aléatoire avec rappel vers un prix
   de référence et actualités qui font bondir ou chuter un cours). Cours communs à tous les serveurs, portefeuilles
   propres à chaque serveur, 1 % de frais par ordre. `/bourse graphique` trace la courbe en image (1 h à 30 jours).
+  **Dividendes** : CRS, l'actif stable, verse chaque jour à midi (heure de Paris) 0,2 % de la valeur détenue.
 - **Sanctions automatiques** : par exemple `3 = timeout 1h`, `5 = kick`, `7 = ban 7j` ; appliquées par le bot dès qu'un
   membre atteint ce nombre d'avertissements actifs.
 - **Bans temporaires** : `/ban duree:3j` ; le ban est levé automatiquement, même après un redémarrage du bot.
