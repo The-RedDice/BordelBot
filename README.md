@@ -14,7 +14,8 @@ Les gagnants des parties sont crédités automatiquement (avec un bonus pour le 
 
 ## Installation
 
-Prérequis : Node.js ≥ 20.11.
+Prérequis : Node.js ≥ 22.12 (exigé par better-sqlite3 13 et Vitest 5 ; avec Node 20, better-sqlite3 plante
+au chargement avec une « Segmentation fault »).
 
 ```bash
 npm install
