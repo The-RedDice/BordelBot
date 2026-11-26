@@ -17,6 +17,10 @@ const KIND_LABELS: Record<TransactionKind, string> = {
   market_sell: '📉 Vente en bourse',
   achievement: '🏅 Succès',
   birthday: '🎂 Anniversaire',
+  heist: '🦹 Braquage',
+  lottery: '🎟️ Loterie',
+  season_reward: '🏅 Saison',
+  dividend: '💵 Dividende',
 };
 
 const GAME_LABELS: Record<string, string> = { mole: 'La Taupe', 'one-vs-all': '1 contre tous', wordle: 'Mot du jour' };

@@ -5,6 +5,8 @@ import { formatAmount, MAX_AMOUNT, MAX_PURCHASE_QUANTITY } from '../EconomyServi
 import type { GetServices } from '../services.js';
 import { achievementLines, ECONOMY_COLOR, errorText, transactionLine } from './format.js';
 import { guildOnly, rejectBot, subcommand } from './helpers.js';
+import { HEIST_COOLDOWN_MS, HEIST_TARGET_PROTECTION_MS } from '../heist/HeistService.js';
+import { buyRoleItem, grantLine, roleDurationText } from './roles.js';
 
 export function createEconomyCommands(getService: GetServices): Subcommand[] {
   const solde: Subcommand = {
@@ -103,7 +105,9 @@ export function createEconomyCommands(getService: GetServices): Subcommand[] {
           name: `${item.name} — ${formatAmount(item.price, currencyName)}`,
           value: [
             item.description ? escapeMarkdown(item.description) : null,
-            `\`/boutique acheter article:${item.key}\`${item.stackable ? '' : ' · exemplaire unique'}`,
+            item.roleId
+              ? `🎭 Rôle <@&${item.roleId}> · ${roleDurationText(item)} · \`/boutique acheter article:${item.key}\``
+              : `\`/boutique acheter article:${item.key}\`${item.stackable ? '' : ' · exemplaire unique'}`,
           ]
             .filter(Boolean)
             .join('\n'),
@@ -123,7 +127,13 @@ export function createEconomyCommands(getService: GetServices): Subcommand[] {
         o.setName('quantite').setDescription('Quantité (1 par défaut)').setMinValue(1).setMaxValue(MAX_PURCHASE_QUANTITY),
       ),
     execute: guildOnly(async (i, { eco }) => {
-      const r = eco.buy(i.guildId, i.user.id, i.options.getString('article', true), i.options.getInteger('quantite') ?? 1);
+      const key = i.options.getString('article', true);
+      const roleItem = eco.getItem(i.guildId, key.trim().toLowerCase());
+      if (roleItem?.roleId && roleItem.enabled) {
+        if (!i.inCachedGuild()) return replyEphemeral(i, 'Je dois être présent sur ce serveur pour attribuer un rôle.');
+        return replyEphemeral(i, await buyRoleItem(i.guild, i.member, roleItem, getService));
+      }
+      const r = eco.buy(i.guildId, i.user.id, key, i.options.getInteger('quantite') ?? 1);
       if (!r.ok) return replyEphemeral(i, errorText(r.error));
       const { currencyName } = eco.getSettings(i.guildId);
       const { item, quantity, total, balance } = r.value;
@@ -152,21 +162,47 @@ export function createEconomyCommands(getService: GetServices): Subcommand[] {
     data: subcommand('inventaire', 'Affiche ton inventaire ou celui d’un membre').addUserOption((o) =>
       o.setName('membre').setDescription('Membre à consulter'),
     ),
-    execute: guildOnly(async (i, { eco }) => {
+    execute: guildOnly(async (i, { eco, roleShop }) => {
       const user = i.options.getUser('membre') ?? i.user;
       if (await rejectBot(i, user)) return;
       const items = eco.inventory(i.guildId, user.id);
+      const roles = roleShop.grants(i.guildId, user.id);
+      const lines = [
+        ...items.map((it) => `• **${escapeMarkdown(it.name)}** × ${it.quantity}`),
+        ...(roles.length ? [...(items.length ? [''] : []), '**Rôles achetés**', ...roles.map(grantLine)] : []),
+      ];
       const embed = new EmbedBuilder()
         .setColor(ECONOMY_COLOR)
         .setAuthor({ name: `Inventaire de ${user.displayName}`, iconURL: user.displayAvatarURL() })
-        .setDescription(
-          items.length
-            ? items.map((it) => `• **${escapeMarkdown(it.name)}** × ${it.quantity}`).join('\n')
-            : '*Inventaire vide.*',
-        );
+        .setDescription(lines.length ? lines.join('\n') : '*Inventaire vide.*');
       await i.reply({ embeds: [embed] });
     }, getService),
   };
 
-  return [solde, daily, virer, historique, boutique, acheter, inventaire];
+  const braquer: Subcommand = {
+    parent: 'eco',
+    data: subcommand(
+      'braquer',
+      `Tente de voler un membre (30 à 60 % de réussite) ; raté, tu paies une amende`,
+    ).addUserOption((o) => o.setName('membre').setDescription('Ta cible').setRequired(true)),
+    execute: guildOnly(async (i, { heists, eco }) => {
+      const target = i.options.getUser('membre', true);
+      if (await rejectBot(i, target)) return;
+      const r = heists.attempt(i.guildId, i.user.id, target.id);
+      if (!r.ok) return replyEphemeral(i, errorText(r.error));
+      const { currencyName: cur } = eco.getSettings(i.guildId);
+      const { success, amount, chance, robberBalance } = r.value;
+      const odds = `${Math.round(chance * 100)} % de chances`;
+      const content = success
+        ? `🦹 ${i.user} a braqué ${target} et repart avec **${formatAmount(amount, cur)}** ! (${odds})\n` +
+          `Solde : ${formatAmount(robberBalance, cur)}`
+        : `🚨 ${i.user} s’est fait prendre en braquant ${target} : amende de **${formatAmount(amount, cur)}**, versée à la victime. (${odds})`;
+      const footer =
+        `-# Prochain braquage dans ${HEIST_COOLDOWN_MS / 3_600_000} h ; ` +
+        `${target.displayName} est à l’abri pendant ${HEIST_TARGET_PROTECTION_MS / 3_600_000} h.`;
+      await i.reply({ content: `${content}\n${footer}`, allowedMentions: { users: [target.id] } });
+    }, getService),
+  };
+
+  return [solde, daily, virer, historique, boutique, acheter, inventaire, braquer];
 }

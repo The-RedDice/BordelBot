@@ -48,7 +48,11 @@ export type TransactionKind =
   | 'market_buy'
   | 'market_sell'
   | 'achievement'
-  | 'birthday';
+  | 'birthday'
+  | 'heist'
+  | 'lottery'
+  | 'season_reward'
+  | 'dividend';
 
 export interface Transaction {
   readonly id: number;
@@ -69,6 +73,10 @@ export interface ShopItem {
   readonly price: number;
   readonly stackable: boolean;
   readonly enabled: boolean;
+  /** Rôle attribué à l'achat (géré par RoleShop) ; null pour un article classique. */
+  readonly roleId: string | null;
+  /** Durée du rôle ; null = permanent. */
+  readonly roleDurationMs: number | null;
 }
 
 export interface InventoryEntry {
@@ -122,7 +130,8 @@ export type EconomyErrorCode =
   | 'UNKNOWN_ASSET'
   | 'INSUFFICIENT_SHARES'
   | 'TRADE_TOO_SMALL'
-  | 'WAGER_CLOSED';
+  | 'WAGER_CLOSED'
+  | 'HEIST_UNAVAILABLE';
 
 export interface EconomyError {
   readonly code: EconomyErrorCode;
@@ -163,9 +172,12 @@ interface ItemRow {
   price: number;
   stackable: number;
   enabled: number;
+  roleId: string | null;
+  roleDurationMs: number | null;
 }
 
-const ITEM_COLUMNS = 'id, key, name, description, price, stackable, enabled';
+const ITEM_COLUMNS =
+  'id, key, name, description, price, stackable, enabled, role_id AS roleId, role_duration_ms AS roleDurationMs';
 
 /** Ligne d'export : une transaction et son titulaire. */
 export interface ExportRow extends Transaction {
@@ -249,11 +261,13 @@ function prepareStatements(db: Db) {
       `SELECT ${ITEM_COLUMNS} FROM shop_items WHERE guild_id = ? AND enabled = 1 ORDER BY price, name`,
     ),
     upsertItem: db.prepare(
-      `INSERT INTO shop_items (guild_id, key, name, description, price, stackable, enabled, created_at)
-       VALUES (@guildId, @key, @name, @description, @price, @stackable, 1, @now)
+      `INSERT INTO shop_items
+         (guild_id, key, name, description, price, stackable, enabled, created_at, role_id, role_duration_ms)
+       VALUES (@guildId, @key, @name, @description, @price, @stackable, 1, @now, @roleId, @roleDurationMs)
        ON CONFLICT (guild_id, key) DO UPDATE SET
          name = excluded.name, description = excluded.description, price = excluded.price,
-         stackable = excluded.stackable, enabled = 1`,
+         stackable = excluded.stackable, enabled = 1, role_id = excluded.role_id,
+         role_duration_ms = excluded.role_duration_ms`,
     ),
     disableItem: db.prepare('UPDATE shop_items SET enabled = 0 WHERE guild_id = ? AND key = ? AND enabled = 1'),
     ownedQuantity: db
@@ -530,7 +544,16 @@ export class EconomyService {
   /** Crée l'article, ou le met à jour (et le réactive) si la clé existe déjà. */
   upsertItem(
     guildId: string,
-    input: { key: string; name: string; description?: string; price: number; stackable?: boolean },
+    input: {
+      key: string;
+      name: string;
+      description?: string;
+      price: number;
+      stackable?: boolean;
+      /** Article « rôle » : jamais cumulable. */
+      roleId?: string | null;
+      roleDurationMs?: number | null;
+    },
   ): EcoResult<ShopItem> {
     return this.run(() => {
       const key = input.key.trim().toLowerCase();
@@ -544,13 +567,20 @@ export class EconomyService {
       if (!Number.isSafeInteger(input.price) || input.price < 0 || input.price > MAX_AMOUNT) {
         fail('INVALID_ITEM', 'Le prix doit être un entier positif ou nul.');
       }
+      const roleId = input.roleId ?? null;
+      const roleDurationMs = roleId ? (input.roleDurationMs ?? null) : null;
+      if (roleDurationMs !== null && (!Number.isSafeInteger(roleDurationMs) || roleDurationMs <= 0)) {
+        fail('INVALID_ITEM', 'La durée du rôle est invalide.');
+      }
       this.stmts.upsertItem.run({
         guildId,
         key,
         name,
         description,
         price: input.price,
-        stackable: input.stackable === false ? 0 : 1,
+        stackable: roleId || input.stackable === false ? 0 : 1,
+        roleId,
+        roleDurationMs,
         now: this.clock(),
       });
       const item = this.getItem(guildId, key);
@@ -571,6 +601,8 @@ export class EconomyService {
     return this.run(() => {
       const it = this.getItem(guildId, key.trim().toLowerCase());
       if (!it || !it.enabled) fail('ITEM_NOT_FOUND', "Cet article n'est pas en vente.");
+      // Les rôles passent par RoleShop (attribution Discord, durée, remboursement en cas d'échec).
+      if (it.roleId) fail('INVALID_ITEM', 'Cet article est un rôle : il s’achète avec RoleShop.');
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_PURCHASE_QUANTITY) {
         fail('INVALID_QUANTITY', `La quantité doit être comprise entre 1 et ${MAX_PURCHASE_QUANTITY}.`);
       }

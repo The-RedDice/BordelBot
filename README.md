@@ -9,7 +9,7 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
 | Commande | Sous-commandes |
 |---|---|
 | `/jeu` | `taupe` · `mot-du-jour` · `morpion` · `puissance4` · `blackjack` · `roulette` · `pile-ou-face` · `machine-a-sous` · `duel` |
-| `/eco` | `solde` · `daily` · `virer` · `historique` |
+| `/eco` | `solde` · `daily` · `virer` · `historique` · `braquer` |
 | `/boutique` | `voir` · `acheter` · `inventaire` |
 | `/bourse` | `cours` · `graphique` · `acheter` · `vendre` · `portefeuille` |
 | `/profil` | `general` · `succes` · `niveau` |
@@ -19,8 +19,8 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
 | `/note` | `ajouter` · `voir` · `supprimer` |
 | `/anniversaire` | `definir` · `supprimer` · `voir` · `prochains` |
 | `/salon` | `verrouiller` · `deverrouiller` · `mode-lent` |
-| `/admin` | `solde …` · `boutique …` · `xp …` · `export` (« Gérer le serveur ») |
-| `/config` | tableau de bord : économie, modération, automod, niveaux, rôles de niveau, anniversaires |
+| `/admin` | `solde …` · `boutique ajouter|role|retirer` · `xp …` · `export` (« Gérer le serveur ») |
+| `/config` | tableau de bord : économie, rôles et braquage, modération, automod, niveaux, rôles de niveau, anniversaires |
 | `/info` | version, latence, uptime |
 
 - **La Taupe** : tous les agents connaissent un mot secret sauf la taupe, qui doit se fondre dans la masse. Les gagnants
@@ -42,6 +42,13 @@ Les commandes sont regroupées par thème : 20 commandes au lieu d'une trentaine
   européenne à plusieurs (30 s de mises après le premier pari, chances simples, douzaines, numéro plein).
   Mise maximale réglable dans `/config` (0 = désactivés). Les mises des parties en cours sont gardées en base : si le
   bot redémarre en pleine partie, elles sont remboursées.
+- **Rôles en boutique** : `/admin boutique role` met un rôle en vente, permanent ou pour une durée (`7j`…). Racheter
+  un rôle temporaire le prolonge ; il est retiré automatiquement à l'échéance. Si Discord refuse de l'attribuer,
+  l'achat est remboursé. Visible dans `/boutique inventaire`.
+- **Rôle du plus riche** : donné au n° 1 de `/top fortune` (vérifié toutes les heures), avec annonce facultative.
+- **Braquages** : `/eco braquer`, 30 à 60 % de réussite (plus facile sur une cible plus riche que soi), butin de 5 à
+  15 % de son solde (plafond réglable) ; raté, 10 % de son propre solde va à la cible. Un braquage toutes les 4 h,
+  une même cible au plus une fois toutes les 12 h. Désactivable dans `/config`.
 - **Bourse** : 5 actifs fictifs dont le cours évolue toutes les 5 minutes (marche aléatoire avec rappel vers un prix
   de référence et actualités qui font bondir ou chuter un cours). Cours communs à tous les serveurs, portefeuilles
   propres à chaque serveur, 1 % de frais par ordre. `/bourse graphique` trace la courbe en image (1 h à 30 jours).

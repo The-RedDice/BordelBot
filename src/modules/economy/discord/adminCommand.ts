@@ -9,6 +9,7 @@ import {
   type SlashCommandIntegerOption,
 } from 'discord.js';
 import type { Subcommand } from '../../../core/commands/types.js';
+import { formatDuration, parseDuration } from '../../../core/duration.js';
 import { replyEphemeral } from '../../../core/replies.js';
 import { transactionsCsv } from '../csv.js';
 import { formatAmount, MAX_AMOUNT, MAX_EXPORT_ROWS, type EconomyService } from '../EconomyService.js';
@@ -71,6 +72,23 @@ export function createEconomyAdminCommands(getService: () => EconomyService): Su
     )
     .addSubcommand((s) =>
       s
+        .setName('role')
+        .setDescription('Met un rôle en vente, temporaire ou permanent (modifie l’article de même clé)')
+        .addStringOption((o) =>
+          o.setName('cle').setDescription('Identifiant : minuscules, chiffres, tirets').setRequired(true).setMaxLength(32),
+        )
+        .addStringOption((o) => o.setName('nom').setDescription('Nom affiché').setRequired(true).setMaxLength(64))
+        .addIntegerOption((o) =>
+          o.setName('prix').setDescription('Prix').setRequired(true).setMinValue(0).setMaxValue(MAX_AMOUNT),
+        )
+        .addRoleOption((o) => o.setName('role').setDescription('Rôle attribué à l’achat').setRequired(true))
+        .addStringOption((o) =>
+          o.setName('duree').setDescription('Durée : 7j, 12h, 2sem… ; vide = permanent').setMaxLength(32),
+        )
+        .addStringOption((o) => o.setName('description').setDescription('Description').setMaxLength(200)),
+    )
+    .addSubcommand((s) =>
+      s
         .setName('retirer')
         .setDescription('Retire un article de la vente (les inventaires sont conservés)')
         .addStringOption((o) => o.setName('cle').setDescription('Clé de l’article').setRequired(true).setMaxLength(32)),
@@ -110,6 +128,36 @@ export function createEconomyAdminCommands(getService: () => EconomyService): Su
       if (sub === 'retirer') {
         const r = eco.disableItem(guildId, key);
         return replyEphemeral(i, r.ok ? `✅ Article \`${key}\` retiré de la vente.` : errorText(r.error));
+      }
+      if (sub === 'role') {
+        const role = i.options.getRole('role', true);
+        if (role.id === i.guildId || ('managed' in role && role.managed)) {
+          return replyEphemeral(i, 'Ce rôle ne peut pas être vendu (rôle géré par une intégration, ou @everyone).');
+        }
+        const cached = i.guild?.roles.cache.get(role.id);
+        if (cached && !cached.editable) {
+          return replyEphemeral(i, `Je ne peux pas attribuer ${role} : il me faut « Gérer les rôles » et un rôle placé au-dessus de lui.`);
+        }
+        const rawDuration = i.options.getString('duree');
+        const roleDurationMs = rawDuration === null || !rawDuration.trim() ? null : parseDuration(rawDuration);
+        if (rawDuration !== null && rawDuration.trim() && roleDurationMs === null) {
+          return replyEphemeral(i, 'Durée invalide. Exemples : `12h`, `7j`, `2sem` ; laisse vide pour un rôle permanent.');
+        }
+        const r = eco.upsertItem(guildId, {
+          key,
+          name: i.options.getString('nom', true),
+          description: i.options.getString('description') ?? '',
+          price: i.options.getInteger('prix', true),
+          roleId: role.id,
+          roleDurationMs,
+        });
+        if (!r.ok) return replyEphemeral(i, errorText(r.error));
+        const { currencyName } = eco.getSettings(guildId);
+        return replyEphemeral(
+          i,
+          `✅ Rôle ${role} en vente sous \`${r.value.key}\` : ${formatAmount(r.value.price, currencyName)}, ` +
+            `${roleDurationMs === null ? 'permanent' : `pour ${formatDuration(roleDurationMs)} (un rachat prolonge)`}.`,
+        );
       }
       const r = eco.upsertItem(guildId, {
         key,

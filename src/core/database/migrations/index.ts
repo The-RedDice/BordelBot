@@ -7,6 +7,7 @@ import { schedulerMigration } from './005_scheduler.js';
 import { moderationToolsMigration } from './006_moderation_tools.js';
 import { birthdaysMigration } from './007_birthdays.js';
 import { gamesMigration } from './008_games.js';
+import { economyRolesHeistsMigration } from './009_economy_roles_heists.js';
 
 /** Ajouter chaque nouvelle migration ici, dans l'ordre. */
 export const migrations: readonly Migration[] = [
@@ -18,4 +19,5 @@ export const migrations: readonly Migration[] = [
   moderationToolsMigration,
   birthdaysMigration,
   gamesMigration,
+  economyRolesHeistsMigration,
 ];

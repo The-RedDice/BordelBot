@@ -18,6 +18,11 @@ import { WagerService } from './gambling/WagerService.js';
 import { MARKET_TICK_MS, MarketService } from './market/MarketService.js';
 import { ProgressService, type UnlockedAchievement } from './progress/ProgressService.js';
 import type { EconomyServices } from './services.js';
+import { createExtrasSettings } from './discord/extrasSettings.js';
+import { roleExpiryHandler, updateRichest } from './discord/roles.js';
+import { EconomyExtrasStore } from './extras.js';
+import { HeistService } from './heist/HeistService.js';
+import { RoleShop } from './shop/RoleShop.js';
 
 /**
  * Module Économie : soldes, daily, virements, boutique, jeux d'argent, bourse,
@@ -32,6 +37,12 @@ let logger: Logger | undefined;
 let client: Client<true> | undefined;
 let unsubscribe: (() => void) | undefined;
 let marketTimer: NodeJS.Timeout | undefined;
+let unregisterJobs: (() => void)[] = [];
+
+export const RICHEST_TICK_KEY = 'economy:richest';
+
+/** Début de l'heure suivante, plus quelques secondes. */
+const nextHour = (at: number) => (Math.floor(at / 3_600_000) + 1) * 3_600_000 + 5_000;
 /** Parties déjà comptées dans les statistiques (les plus récentes). */
 const countedSessions = new Set<string>();
 
@@ -107,7 +118,7 @@ export const economyModule: BotModule = {
     ...createEconomyAdminCommands(getEconomyService),
   ],
   components: gambling.components,
-  settings: [createEconomySettings(getEconomyService)],
+  settings: [createEconomySettings(getEconomyService), createExtrasSettings(getServices)],
   init(ctx) {
     const log = ctx.logger.child('economy');
     logger = log;
@@ -118,7 +129,30 @@ export const economyModule: BotModule = {
     // Parties interrompues par un arrêt du bot : leurs mises sont rendues.
     const refunded = wagers.refundOpen();
     if (refunded > 0) log.warn(`${refunded} partie(s) interrompue(s) : mises remboursées`);
-    services = { eco, progress, gambling: new GamblingService(eco, progress), market, wagers };
+    const extras = new EconomyExtrasStore(ctx.db);
+    services = {
+      eco,
+      progress,
+      gambling: new GamblingService(eco, progress),
+      market,
+      wagers,
+      roleShop: new RoleShop(ctx.db, eco),
+      heists: new HeistService(ctx.db, eco, extras),
+      extras,
+      scheduler: ctx.scheduler,
+    };
+
+    // Fin des rôles achetés, et rôle du plus riche vérifié toutes les heures (tâche unique à clé fixe).
+    unregisterJobs = [
+      ctx.scheduler.register('shop:roleExpiry', roleExpiryHandler(getServices)),
+      ctx.scheduler.register('economy:richest', async (_job, c) => {
+        await updateRichest(c, getServices, log);
+        return { rescheduleAt: nextHour(Date.now()) };
+      }),
+    ];
+    if (!ctx.scheduler.getByKey(RICHEST_TICK_KEY)) {
+      ctx.scheduler.schedule('economy:richest', Date.now(), {}, { key: RICHEST_TICK_KEY });
+    }
     duels = new DuelManager(getServices, getLogger);
     tables = {
       blackjack: new BlackjackTables(getServices, getLogger),
@@ -172,6 +206,8 @@ export const economyModule: BotModule = {
     clearTimeout(marketTimer);
     clearInterval(marketTimer);
     marketTimer = undefined;
+    for (const off of unregisterJobs) off();
+    unregisterJobs = [];
     duels?.dispose();
     duels = undefined;
     // Parties en cours abandonnées : leurs mises restent en dépôt et seront remboursées au prochain démarrage.

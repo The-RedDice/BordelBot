@@ -1,5 +1,48 @@
 # Journal des modifications
 
+## Économie, lot 1 : rôles en boutique, rôle du plus riche, braquages
+
+### 🎭 Rôles en boutique
+
+- **`/admin boutique role cle nom prix role [duree] [description]`** : met un rôle en vente, **permanent** (durée vide)
+  ou **temporaire** (`12h`, `7j`, `2sem`…). Le rôle doit être sous celui du bot (vérifié).
+- **Achat** avec `/boutique acheter` comme un article ordinaire. Un rôle permanent ne s'achète qu'une fois ; racheter un
+  rôle temporaire le **prolonge** à partir de l'échéance en cours.
+- **Fiable** : si Discord refuse d'attribuer le rôle, l'achat est **annulé et remboursé**. À l'échéance, le
+  planificateur retire le rôle (même après un redémarrage) ; une prolongation entre-temps repousse la tâche.
+- `/boutique voir` indique le rôle et sa durée ; `/boutique inventaire` liste les rôles achetés et leur échéance.
+
+### 👑 Rôle du plus riche
+
+- Donné au **n° 1 de `/top fortune`** encore présent sur le serveur, vérifié **toutes les heures** ; retiré à l'ancien
+  détenteur. Annonce facultative dans un salon quand il change de main.
+
+### 🦹 `/eco braquer membre`
+
+- **30 à 60 % de réussite** : 45 % à fortune égale, plus facile contre une cible plus riche que soi.
+- Réussi : **5 à 15 % du solde de la cible**, plafonné (5 000 par défaut, réglable). Raté : **amende de 10 %** de son
+  propre solde, **versée à la cible**.
+- **Un braquage toutes les 4 h** ; une cible ne peut être visée qu'**une fois toutes les 12 h**. Il faut au moins 100
+  pour tenter (de quoi payer l'amende) et la cible doit avoir au moins 100. Résultat public, la cible est mentionnée.
+- **Désactivable**.
+
+### ⚙️ `/config` → 👑 Rôles et braquage
+
+Rôle du plus riche, salon d'annonce, braquages activés ou non, butin maximal.
+
+### 🔧 Technique
+
+- `RoleShop`, `HeistService`, `EconomyExtrasStore` ; tâches `shop:roleExpiry` et `economy:richest`.
+- `core/duration.ts` : analyse des durées partagée (déplacée depuis la modération).
+- **Migration 009** : `shop_items.role_id` / `role_duration_ms`, tables `role_grants`, `economy_extras`, `heists` ;
+  journal économique reconstruit **une seule fois pour les trois lots** (types `heist`, `lottery`, `season_reward`,
+  `dividend`).
+- **Tests** : 271 au total, dont 16 nouveaux.
+
+**Déploiement** : `git pull && npm ci && npm run build && npm run deploy:commands && pm2 restart bordelbot`
+(`deploy:commands` pour `/eco braquer` et `/admin boutique role`). Le bot doit avoir « Gérer les rôles » et un rôle
+placé au-dessus des rôles vendus et du rôle du plus riche.
+
 ## Mot du jour, morpion, puissance 4, blackjack et roulette
 
 Cinq nouvelles sous-commandes de `/jeu`.

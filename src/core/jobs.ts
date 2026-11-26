@@ -9,4 +9,8 @@
 export interface BotJobs {
   /** Toutes les heures : annonces d'anniversaire dues et retrait des rôles de la veille. */
   'birthdays:tick': Record<string, never>;
+  /** Fin d'un rôle acheté en boutique (replanifiée si le rôle a été prolongé). */
+  'shop:roleExpiry': { readonly guildId: string; readonly userId: string; readonly roleId: string };
+  /** Toutes les heures : le rôle du plus riche passe au n° 1 du classement. */
+  'economy:richest': Record<string, never>;
 }
