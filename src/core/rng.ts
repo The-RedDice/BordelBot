@@ -1,12 +1,16 @@
-import { randomInt as cryptoRandomInt } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 
 /** Générateur uniforme dans [0, 1). */
 export type Rng = () => number;
 
+/** 48 bits aléatoires : entier exact en double, de 0 à 2⁴⁸ − 1. */
 const RANGE = 2 ** 48;
 
-/** Production : imprévisible (rôles secrets, jeux d’argent, bourse). */
-export const cryptoRng: Rng = () => cryptoRandomInt(0, RANGE) / RANGE;
+/**
+ * Production : imprévisible (rôles secrets, jeux d’argent, bourse).
+ * Pas `crypto.randomInt(0, 2 ** 48)` : son écart maximal est 2⁴⁸ − 1 et il lève ERR_OUT_OF_RANGE.
+ */
+export const cryptoRng: Rng = () => randomBytes(6).readUIntBE(0, 6) / RANGE;
 
 /** Tests : déterministe (mulberry32). */
 export function seededRng(seed: number): Rng {
